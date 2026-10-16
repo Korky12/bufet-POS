@@ -1,0 +1,46 @@
+/* Vlastní doplňkové styly pro Školní Bufet POS */
+
+/* Všechna interaktivní tlačítka mají min-height 48px pro snadné dotykové ovládání na tabletu/mobilu */
+.touch-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease-in-out;
+}
+
+.touch-btn:active {
+  transform: scale(0.97);
+}
+
+/* Přizpůsobený scrollbar pro přehledný seznam produktů a účtu */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Karta produktu - mírný stín a animace při kliknutí */
+.product-card {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  min-height: 110px;
+}
+
+.product-card:active {
+  transform: scale(0.96);
+}
