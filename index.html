@@ -242,8 +242,27 @@
 
         <!-- Seznam dokončených účtenek -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-3.5 sm:p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800 text-sm sm:text-base">
-            Výpis dokončených účtenek
+          <div class="p-3 sm:p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-800 text-sm sm:text-base">Výpis účtenek</span>
+              <span id="history-filter-badge" class="text-xs bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-full"></span>
+            </div>
+            
+            <!-- Rychlé filtry účtenek: Všechny, Platné, Stornované -->
+            <div class="flex items-center gap-1 bg-slate-200/80 p-0.5 rounded-xl text-xs">
+              <button type="button" onclick="setHistoryFilter('all')" id="filter-btn-all" 
+                      class="px-2.5 py-1 font-bold rounded-lg transition bg-white text-slate-900 shadow-xs">
+                Všechny
+              </button>
+              <button type="button" onclick="setHistoryFilter('valid')" id="filter-btn-valid" 
+                      class="px-2.5 py-1 font-bold rounded-lg transition text-slate-600 hover:text-slate-900">
+                Platné
+              </button>
+              <button type="button" onclick="setHistoryFilter('cancelled')" id="filter-btn-cancelled" 
+                      class="px-2.5 py-1 font-bold rounded-lg transition text-slate-600 hover:text-slate-900">
+                Stornované
+              </button>
+            </div>
           </div>
           <div id="orders-list" class="divide-y divide-slate-100 p-3 sm:p-4 space-y-3">
             <!-- Dynamicky generováno přes orders.js -->
@@ -376,7 +395,8 @@
   <!-- ========================================== -->
   <!-- 4. MODÁLNÍ OKNO: PLATBA HOTOVĚ S KALKULAČKOU (Dotykový Numpad pro mobil & iPad) -->
   <!-- ========================================== -->
-  <div id="cash-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-4">
+  <div id="cash-modal" onclick="if(event.target.id === 'cash-modal') closeCashModal()" 
+       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-3.5 sm:space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[95vh] overflow-y-auto touch-scroll">
       
       <!-- Hlavička modálu -->
@@ -453,7 +473,113 @@
 
 
   <!-- ========================================== -->
-  <!-- 5. PŘIPOJENÍ JAVASCRIPT MODULŮ             -->
+  <!-- 5. MODÁLNÍ OKNO: ÚPRAVA ÚČTENKY A STORNO    -->
+  <!-- ========================================== -->
+  <div id="edit-order-modal" onclick="handleEditModalBackdrop(event)" 
+       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-4">
+    <div onclick="event.stopPropagation()" 
+         class="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-3.5 sm:space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[94vh] overflow-y-auto touch-scroll">
+      
+      <!-- Hlavička modálu -->
+      <div class="flex items-center justify-between pb-2 sm:pb-3 border-b border-slate-100">
+        <div>
+          <h3 id="edit-modal-title" class="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+            <span>🧾</span> Úprava účtenky
+          </h3>
+          <p id="edit-modal-subtitle" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button type="button" onclick="closeEditOrderModal()" 
+                class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 active:bg-slate-200"
+                title="Zavřít">
+          ✕
+        </button>
+      </div>
+
+      <!-- Stav účtenky (Platná vs Storno) -->
+      <div id="edit-modal-status-banner" class="p-3 rounded-2xl flex items-center justify-between gap-2 transition-colors">
+        <!-- Dynamicky generováno přes orders.js -->
+      </div>
+
+      <!-- Způsob platby -->
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Způsob platby</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="edit-pay-cash" onclick="setEditPaymentMethod('cash')" 
+                  class="touch-btn py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition">
+            <span>💵 Hotově</span>
+          </button>
+          <button type="button" id="edit-pay-card" onclick="setEditPaymentMethod('card')" 
+                  class="touch-btn py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition">
+            <span>💳 Kartou</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Jméno obsluhy -->
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Obsluha účtenky</label>
+        <input type="text" id="edit-order-cashier" placeholder="Jméno obsluhy" 
+               class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <!-- Seznam položek v účtence -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider">Položky v účtence</label>
+          <span id="edit-order-items-count" class="text-xs text-slate-400 font-mono font-semibold">0 položek</span>
+        </div>
+        
+        <div id="edit-order-items-list" class="space-y-2 max-h-56 overflow-y-auto pr-1 touch-scroll">
+          <!-- Dynamicky generováno přes orders.js -->
+        </div>
+      </div>
+
+      <!-- Přidat položku z ceníku do účtenky -->
+      <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+        <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+          <span>➕</span> Přidat produkt do této účtenky
+        </label>
+        <div class="flex gap-2">
+          <select id="edit-order-product-select" 
+                  class="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate">
+            <!-- Možnosti z nabídky -->
+          </select>
+          <button type="button" onclick="addSelectedProductToEditOrder()" 
+                  class="touch-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shrink-0 shadow-sm transition">
+            Přidat
+          </button>
+        </div>
+      </div>
+
+      <!-- Souhrn částky -->
+      <div class="bg-slate-900 text-white p-3.5 sm:p-4 rounded-2xl flex items-center justify-between">
+        <div>
+          <span class="text-xs text-slate-400 block font-semibold">Přepočítaná částka:</span>
+          <span id="edit-modal-orig-total" class="text-[11px] text-slate-400 block mt-0.5"></span>
+        </div>
+        <div id="edit-modal-total-display" class="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
+          0 Kč
+        </div>
+      </div>
+
+      <!-- Tlačítka potvrzení / zrušení -->
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 pt-1">
+        <button type="button" onclick="closeEditOrderModal()" 
+                class="touch-btn py-3 rounded-2xl border border-slate-300 font-bold text-sm text-slate-700 hover:bg-slate-100 transition">
+          Zpět bez uložení
+        </button>
+        <button type="button" onclick="saveEditedOrder()" 
+                class="touch-btn py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition">
+          💾 Uložit změny
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 6. PŘIPOJENÍ JAVASCRIPT MODULŮ             -->
   <!-- ========================================== -->
   <script src="js/data.js"></script>
   <script src="js/cart.js"></script>

@@ -355,5 +355,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Zavření modálních oken klávesou Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeCashModal();
+      if (typeof closeEditOrderModal === 'function') {
+        closeEditOrderModal();
+      }
+    }
+  });
+
   console.log('✅ Školní Bufet POS inicializován (mobil & iPad ready).');
 });
