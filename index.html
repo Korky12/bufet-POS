@@ -55,9 +55,15 @@
         </button>
       </nav>
 
-      <!-- Přihlášená obsluha + tlačítko košíku pro mobil -->
+      <!-- Přihlášená obsluha + indikátor serveru + tlačítko košíku pro mobil -->
       <div class="flex items-center gap-2">
         
+        <!-- Indikátor synchronizace se serverem (sdílení mezi zařízeními) -->
+        <div id="server-status-pill" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 transition shadow-xs" title="Připojování k serveru...">
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span class="hidden xs:inline">Připojování...</span>
+        </div>
+
         <!-- Rychlé tlačítko košíku v hlavičce na mobilním telefonu -->
         <button id="header-cart-btn" onclick="toggleMobileCart()" 
                 class="md:hidden touch-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
@@ -226,8 +232,11 @@
         <!-- Nadpis a akce -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 class="text-xl sm:text-2xl font-black text-slate-900">Přehled tržeb & Historie</h2>
-            <p class="text-xs sm:text-sm text-slate-500">Statistiky a dokončené objednávky z pokladny</p>
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl sm:text-2xl font-black text-slate-900">Přehled tržeb & Historie</h2>
+              <span id="history-sync-status"></span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-500">Statistiky a dokončené objednávky (sdílené mezi všemi zařízeními)</p>
           </div>
           <button onclick="resetHistory()" 
                   class="touch-btn px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs sm:text-sm font-bold shadow-sm transition">

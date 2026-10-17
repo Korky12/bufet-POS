@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1792256886610,
+    "date": "2026-10-17T17:08:06.610Z",
+    "formattedTime": "19:08:06",
+    "formattedDate": "17. 10. 2026",
+    "paymentMethod": "card",
+    "cashier": "Koupit o",
+    "items": [
+      {
+        "id": 6,
+        "name": "Ovocný čaj",
+        "price": 15,
+        "quantity": 5,
+        "category": "napoje"
+      }
+    ],
+    "totalPrice": 75,
+    "cancelled": false,
+    "cancelledAt": null,
+    "updatedAt": null
+  },
+  {
+    "id": 1792256870877,
+    "date": "2026-10-17T17:07:50.877Z",
+    "formattedTime": "19:07:50",
+    "formattedDate": "17. 10. 2026",
+    "paymentMethod": "card",
+    "cashier": "Obsluha",
+    "items": [
+      {
+        "id": 3,
+        "name": "Kobliha s marmeládou",
+        "price": 20,
+        "quantity": 4,
+        "category": "pecivo"
+      }
+    ],
+    "totalPrice": 80,
+    "cancelled": false,
+    "cancelledAt": null,
+    "updatedAt": null
+  },
+  {
+    "id": 1792256863429,
+    "date": "2026-10-17T17:07:43.429Z",
+    "formattedTime": "19:07:43",
+    "formattedDate": "17. 10. 2026",
+    "paymentMethod": "card",
+    "cashier": "Obsluha",
+    "items": [
+      {
+        "id": 4,
+        "name": "Minerálka neperlivá 0.5l",
+        "price": 18,
+        "quantity": 7,
+        "category": "napoje"
+      }
+    ],
+    "totalPrice": 126,
+    "cancelled": false,
+    "cancelledAt": null,
+    "updatedAt": null
+  },
+  {
+    "id": 1792256842902,
+    "date": "2026-10-17T17:07:22.903Z",
+    "formattedTime": "19:07:22",
+    "formattedDate": "17. 10. 2026",
+    "paymentMethod": "card",
+    "cashier": "Obsluha",
+    "items": [
+      {
+        "id": 3,
+        "name": "Kobliha s marmeládou",
+        "price": 20,
+        "quantity": 9,
+        "category": "pecivo"
+      }
+    ],
+    "totalPrice": 180,
+    "cancelled": false,
+    "cancelledAt": null,
+    "updatedAt": null
+  }
+]
