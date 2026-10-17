@@ -60,6 +60,9 @@ function switchTab(tabName) {
 
   // Překreslíme data pro danou záložku
   if (tabName === 'history') {
+    if (typeof fetchOrdersFromServer === 'function') {
+      fetchOrdersFromServer();
+    }
     renderHistory();
   } else if (tabName === 'admin') {
     renderAdminProducts();

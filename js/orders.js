@@ -1,8 +1,9 @@
 /**
  * orders.js
  * Dokončování objednávek (platby hotově / kartou), ukládání historie a výpočet tržeb.
- * Umožňuje stornovat účtenky po jedné, obnovit je, trvale smazat a upravovat (položky, ceny, platba, obsluha).
- * Optimalizováno pro přehledné dotykové zobrazení na mobilních telefonech, iPadech i PC.
+ * Umožňuje sdílení účtenek na serveru v reálném čase mezi všemi zařízeními (mobily, tablety, PC).
+ * Podporuje stornování po jedné, obnovení, trvalé mazání i úpravy účtenek.
+ * Žádné externí knihovny – čistý nativní JavaScript (Fetch API + Server-Sent Events).
  */
 
 // Aktuální filtr zobrazení účtenek v historii ('all' | 'valid' | 'cancelled')
@@ -11,29 +12,277 @@ let currentHistoryFilter = 'all';
 // Právě upravovaná účtenka v modálním okně
 let currentEditingOrder = null;
 
+// Mezipaměť objednávek v paměti pro okamžité vykreslení
+let cachedOrders = null;
+
+// Příznak stavu spojení se serverem
+let isServerOnline = false;
+
+// Instance SSE pro real-time odběr změn ze serveru
+let sseClient = null;
+
+// Ochrana proti zacyklení synchronizace
+let isSyncingToServer = false;
+
 /**
- * Načte historii objednávek z localStorage
+ * Načte historii objednávek (z paměti / localStorage)
  */
 function getOrders() {
+  if (cachedOrders !== null) {
+    return cachedOrders;
+  }
   const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-  if (!saved) return [];
+  if (!saved) {
+    cachedOrders = [];
+    return cachedOrders;
+  }
   try {
-    return JSON.parse(saved);
+    cachedOrders = JSON.parse(saved);
+    return cachedOrders;
   } catch (e) {
-    console.error('Chyba při čtení objednávek:', e);
-    return [];
+    console.error('Chyba při čtení objednávek z localStorage:', e);
+    cachedOrders = [];
+    return cachedOrders;
   }
 }
 
 /**
- * Uloží pole objednávek do localStorage
+ * Uloží pole objednávek do paměti, localStorage a synchronizuje se serverem
  */
-function saveOrders(orders) {
+function saveOrders(orders, syncWithServer = true) {
+  cachedOrders = orders;
   localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+
+  if (syncWithServer) {
+    pushOrdersToServer(orders);
+  }
+}
+
+/* ========================================================= */
+/* SYNCHRONIZACE SE SERVEREM (Sdílení mezi mobily, tablety, PC) */
+/* ========================================================= */
+
+/**
+ * Vrátí základní URL serverového API.
+ * Pokud aplikace běží přes http/https, použije relativní cestu.
+ * Pokud byla otevřena přímo jako soubor (file:///), zkusí lokální server na portu 3000.
+ */
+function getApiBaseUrl() {
+  if (window.location.protocol.startsWith('http')) {
+    return '';
+  }
+  return 'http://localhost:3000';
 }
 
 /**
- * Dokončí objednávku a uloží ji do historie
+ * Načte aktuální seznam účtenek ze serveru přes REST API
+ */
+async function fetchOrdersFromServer() {
+  if (isSyncingToServer) return;
+
+  const baseUrl = getApiBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/orders`, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const serverOrders = await res.json();
+
+    if (!Array.isArray(serverOrders)) return;
+
+    updateServerStatus(true);
+
+    // Pokud je server prázdný, ale v lokální paměti již máme existující účtenky, nahrajeme je na server
+    const localOrders = getOrders();
+    if (serverOrders.length === 0 && localOrders.length > 0) {
+      await pushOrdersToServer(localOrders);
+      return;
+    }
+
+    applyServerOrders(serverOrders);
+  } catch (err) {
+    updateServerStatus(false);
+  }
+}
+
+/**
+ * Aplikuje účtenky přijaté ze serveru do lokálního stavu
+ */
+function applyServerOrders(serverOrders) {
+  const currentOrders = getOrders();
+  const currentStr = JSON.stringify(currentOrders);
+  const serverStr = JSON.stringify(serverOrders);
+
+  if (currentStr !== serverStr) {
+    const hadCount = currentOrders.length;
+    const newCount = serverOrders.length;
+
+    cachedOrders = serverOrders;
+    localStorage.setItem(STORAGE_KEYS.ORDERS, serverStr);
+
+    // Pokud je uživatel uprostřed editace účtenky, nepřerušujeme mu rozepsaný formulář
+    if (currentEditingOrder) {
+      return;
+    }
+
+    // Upozornění obsluhy, pokud mezitím přibyla nová účtenka z jiného zařízení
+    if (newCount > hadCount && hadCount > 0) {
+      showToast('📥 Nová účtenka z jiného zařízení');
+    }
+
+    renderHistory();
+  }
+}
+
+/**
+ * Odešle aktuální stav účtenek na server k uložení do data/orders.json
+ */
+async function pushOrdersToServer(orders) {
+  const baseUrl = getApiBaseUrl();
+
+  try {
+    isSyncingToServer = true;
+    const res = await fetch(`${baseUrl}/api/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(orders)
+    });
+
+    if (res.ok) {
+      updateServerStatus(true);
+    } else {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (err) {
+    updateServerStatus(false);
+    console.warn('Uložení na server selhalo, data uložena lokálně:', err.message);
+  } finally {
+    isSyncingToServer = false;
+  }
+}
+
+/**
+ * Inicializuje obousměrnou synchronizaci se serverem v reálném čase (SSE + polling fallback)
+ */
+function initOrdersServerSync() {
+  // Prvotní stažení dat ze serveru
+  fetchOrdersFromServer();
+
+  const baseUrl = getApiBaseUrl();
+
+  // 1. Reálný čas přes Server-Sent Events (SSE)
+  if (window.EventSource) {
+    try {
+      if (sseClient) {
+        sseClient.close();
+      }
+      sseClient = new EventSource(`${baseUrl}/api/orders/events`);
+
+      sseClient.onopen = () => {
+        updateServerStatus(true);
+      };
+
+      sseClient.onmessage = (event) => {
+        if (!event.data) return;
+        try {
+          const serverOrders = JSON.parse(event.data);
+          if (Array.isArray(serverOrders)) {
+            updateServerStatus(true);
+            applyServerOrders(serverOrders);
+          }
+        } catch (e) {
+          console.error('Chyba při čtení SSE zprávy:', e);
+        }
+      };
+
+      sseClient.onerror = () => {
+        // Dočasný výpadek spojení, EventSource zkouší automatický reconnect
+        updateServerStatus(false);
+      };
+    } catch (err) {
+      console.warn('Inicializace SSE selhala, poběží záložní polling:', err);
+    }
+  }
+
+  // 2. Záložní periodická kontrola každých 4 vteřiny
+  setInterval(fetchOrdersFromServer, 4000);
+
+  // 3. Okamžitá kontrola při návratu do okna (probuzení telefonu / iPadu ze spánku)
+  window.addEventListener('focus', fetchOrdersFromServer);
+  window.addEventListener('online', fetchOrdersFromServer);
+}
+
+/**
+ * Zobrazí podrobnosti o stavu serveru a návod pro připojení po kliknutí na indikátor
+ */
+function showServerStatusInfo() {
+  if (isServerOnline) {
+    alert(
+      '🟢 SERVER JE AKTIVNÍ A PŘIPOJEN\n\n' +
+      '• Účtenky se ukládají na serveru do souboru data/orders.json.\n' +
+      '• Veškeré změny (nové účtenky, storno, úpravy) se v reálném čase přenášejí na všechny připojené mobily, tablety a PC.\n\n' +
+      'Pro připojení dalších zařízení (iPad, mobil) otevři v jejich prohlížeči IP adresu vypsanou v terminálu po spuštění node server.js.'
+    );
+  } else {
+    const tryAgain = confirm(
+      '🟠 POKLADNA JE V LOKÁLNÍM REŽIMU\n\n' +
+      'Účtenky se nyní ukládají pouze v paměti tohoto zařízení.\n\n' +
+      'Proč je pokladna v lokálním režimu?\n' +
+      '1. Na počítači nebyl spuštěn server (v terminálu zadej: node server.js)\n' +
+      '2. Pokud máš soubor otevřen přímo ze složky (file:///), otevři raději v prohlížeči adresu: http://localhost:3000\n' +
+      '3. Na mobilu či tabletu zkontroluj připojení ke stejné Wi-Fi a správnou IP adresu serveru.\n\n' +
+      'Chceš zkusit navázat spojení se serverem znovu?'
+    );
+    if (tryAgain) {
+      fetchOrdersFromServer();
+    }
+  }
+}
+
+/**
+ * Aktualizuje indikátory propojení se serverem v horní liště i v kartě Tržby
+ */
+function updateServerStatus(online) {
+  isServerOnline = online;
+
+  const pill = document.getElementById('server-status-pill');
+  if (pill) {
+    pill.onclick = showServerStatusInfo;
+    pill.style.cursor = 'pointer';
+
+    if (online) {
+      pill.className = 'cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800 transition shadow-xs hover:bg-emerald-900 active:scale-95';
+      pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span class="hidden xs:inline">Sdíleno</span>';
+      pill.title = '🟢 Server aktivní – účtenky jsou v reálném čase sdíleny (klikni pro info)';
+    } else {
+      pill.className = 'cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-950/80 text-amber-300 border border-amber-800 transition shadow-xs hover:bg-amber-900 active:scale-95';
+      pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="hidden xs:inline">Lokálně</span>';
+      pill.title = '🟠 Server nedostupný – klikni pro nápovědu';
+    }
+  }
+
+  const historySync = document.getElementById('history-sync-status');
+  if (historySync) {
+    historySync.onclick = showServerStatusInfo;
+    historySync.style.cursor = 'pointer';
+
+    if (online) {
+      historySync.innerHTML = '<button type="button" class="cursor-pointer inline-flex items-center gap-1.5 text-[11px] text-emerald-700 font-bold bg-emerald-50 hover:bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200 transition"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>Sdíleno v síti</span></button>';
+    } else {
+      historySync.innerHTML = '<button type="button" class="cursor-pointer inline-flex items-center gap-1.5 text-[11px] text-amber-700 font-semibold bg-amber-50 hover:bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200 transition"><span>Lokální režim ℹ️</span></button>';
+    }
+  }
+}
+
+/* ========================================================= */
+/* DOKONČENÍ A SPRÁVA OBJEDNÁVEK                            */
+/* ========================================================= */
+
+/**
+ * Dokončí objednávku a uloží ji do historie i na server
  */
 function completeOrder(paymentMethod) {
   if (cart.length === 0) {
@@ -60,7 +309,7 @@ function completeOrder(paymentMethod) {
 
   const orders = getOrders();
   orders.unshift(newOrder); // Nové objednávky nahoru
-  saveOrders(orders);
+  saveOrders(orders, true); // Uloží lokálně a odešle na server
 
   const methodLabel = paymentMethod === 'cash' ? 'HOTOVĚ' : 'KARTOU';
   
@@ -129,7 +378,7 @@ function setHistoryFilter(filter) {
 }
 
 /**
- * Stornuje konkrétní účtenku podle ID
+ * Stornuje konkrétní účtenku podle ID a synchronizuje se všemi zařízeními
  */
 function cancelOrder(orderId) {
   const orders = getOrders();
@@ -142,14 +391,14 @@ function cancelOrder(orderId) {
 
   order.cancelled = true;
   order.cancelledAt = new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
-  saveOrders(orders);
+  saveOrders(orders, true);
 
   renderHistory();
   showToast(`🚫 Účtenka #${orderNum} byla stornována (-${order.totalPrice} Kč)`);
 }
 
 /**
- * Obnoví dříve stornovanou účtenku zpět do platných
+ * Obnoví dříve stornovanou účtenku zpět do platných a synchronizuje
  */
 function restoreOrder(orderId) {
   const orders = getOrders();
@@ -159,14 +408,14 @@ function restoreOrder(orderId) {
   const orderNum = order.id.toString().slice(-4);
   order.cancelled = false;
   order.cancelledAt = null;
-  saveOrders(orders);
+  saveOrders(orders, true);
 
   renderHistory();
   showToast(`↩️ Účtenka #${orderNum} byla obnovena jako platná (+${order.totalPrice} Kč)`);
 }
 
 /**
- * Trvale smaže účtenku z historie
+ * Trvale smaže účtenku z historie na všech zařízeních
  */
 function deleteOrderPermanently(orderId) {
   const orders = getOrders();
@@ -174,11 +423,11 @@ function deleteOrderPermanently(orderId) {
   if (!order) return;
 
   const orderNum = order.id.toString().slice(-4);
-  const ok = confirm(`Trvale smazat účtenku #${orderNum} z historie?\n\nTuto akci již nelze vzít zpět.`);
+  const ok = confirm(`Trvale smazat účtenku #${orderNum} ze serveru i všech zařízení?\n\nTuto akci již nelze vzít zpět.`);
   if (!ok) return;
 
   const filtered = orders.filter(o => o.id !== orderId);
-  saveOrders(filtered);
+  saveOrders(filtered, true);
 
   renderHistory();
   showToast(`🗑️ Účtenka #${orderNum} byla trvale smazána`);
@@ -276,7 +525,7 @@ function renderHistory() {
       <div class="p-8 sm:p-12 text-center text-slate-400">
         <span class="text-4xl sm:text-5xl block mb-2">📜</span>
         <p class="font-bold text-slate-700 text-base">Zatím nebyly provedeny žádné prodeje</p>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1">Po zaplacení prvního účtu v pokladně se zde zobrazí výpis</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Po zaplacení prvního účtu v pokladně se zde zobrazí výpis pro všechna zařízení</p>
       </div>
     `;
     return;
@@ -403,14 +652,14 @@ function renderHistory() {
 }
 
 /**
- * Vynuluje celou historii tržeb (pro nový den/směnu)
+ * Vynuluje celou historii tržeb (pro nový den/směnu) a vymaže ji ze serveru
  */
 function resetHistory() {
-  const ok = confirm('Opravdu chceš vymazat historii prodejů a začít novou směnu/den?');
+  const ok = confirm('Opravdu chceš vymazat historii prodejů a začít novou směnu/den?\n\nHistorie bude vynulována na všech připojených zařízeních.');
   if (ok) {
-    saveOrders([]);
+    saveOrders([], true);
     renderHistory();
-    showToast('Historie tržeb byla vynulována.');
+    showToast('Historie tržeb byla vynulována na serveru i zařízeních.');
   }
 }
 
@@ -783,7 +1032,7 @@ function updateEditModalTotalDisplay() {
 }
 
 /**
- * Uloží upravenou účtenku zpět do localStorage a aktualizuje zobrazení
+ * Uloží upravenou účtenku zpět do localStorage, na server a aktualizuje zobrazení
  */
 function saveEditedOrder() {
   if (!currentEditingOrder) return;
@@ -809,16 +1058,23 @@ function saveEditedOrder() {
   currentEditingOrder.totalPrice = newTotal;
   currentEditingOrder.updatedAt = new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
 
-  // Uložení do pole objednávek
+  // Uložení do pole objednávek a odeslání na server
   const orders = getOrders();
   const index = orders.findIndex(o => o.id === currentEditingOrder.id);
   if (index !== -1) {
     orders[index] = currentEditingOrder;
-    saveOrders(orders);
+    saveOrders(orders, true);
   }
 
   const orderNum = currentEditingOrder.id.toString().slice(-4);
   closeEditOrderModal();
   renderHistory();
   showToast(`✅ Účtenka #${orderNum} byla úspěšně upravena a uložena`);
+}
+
+// Spustíme synchronizaci se serverem po načtení dokumentu
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initOrdersServerSync);
+} else {
+  initOrdersServerSync();
 }
