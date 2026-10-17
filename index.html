@@ -1,8 +1,14 @@
+
 <!DOCTYPE html>
 <html lang="cs" class="h-full bg-slate-100">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bufet POS">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f172a">
   <title>Školní Bufet POS</title>
   
   <!-- Tailwind CSS CDN pro moderní Storyous styl -->
@@ -11,53 +17,63 @@
   <!-- Vlastní doplňkové styly -->
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="h-full flex flex-col font-sans text-slate-800 antialiased select-none">
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased select-none bg-slate-100">
 
   <!-- ========================================== -->
   <!-- 1. HORNÍ NAVIGAČNÍ LIŠTA (Storyous Slate-900) -->
   <!-- ========================================== -->
-  <header class="bg-slate-900 text-white shadow-md z-30 shrink-0">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
+  <header class="bg-slate-900 text-white shadow-md z-30 shrink-0 pt-[env(safe-area-inset-top,0px)]">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
       
       <!-- Logo a název -->
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">🏫</span>
+      <div class="flex items-center gap-2 sm:gap-3 cursor-pointer" onclick="switchTab('pos')">
+        <span class="text-2xl sm:text-3xl">🏫</span>
         <div>
-          <h1 class="text-lg font-bold tracking-tight leading-none">Bufet POS</h1>
-          <span class="text-xs text-slate-400 font-mono">školní pokladna</span>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight leading-none">Bufet POS</h1>
+          <span class="text-[10px] sm:text-xs text-slate-400 font-mono hidden xs:inline">školní pokladna</span>
         </div>
       </div>
 
-      <!-- Přepínače záložek -->
-      <nav class="flex items-center gap-1 sm:gap-2">
+      <!-- Přepínače záložek pro Tablet (iPad) a Desktop (na mobilu přesunuté do spodní lišty) -->
+      <nav class="hidden md:flex items-center gap-1.5 lg:gap-2">
         <button onclick="switchTab('pos')" data-tab="pos" 
-                class="nav-btn touch-btn px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition bg-slate-700 text-white flex items-center gap-2">
+                class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition bg-slate-700 text-white flex items-center gap-2">
           <span>🛒</span>
-          <span class="hidden sm:inline">Pokladna</span>
+          <span>Pokladna</span>
         </button>
 
         <button onclick="switchTab('history')" data-tab="history" 
-                class="nav-btn touch-btn px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
           <span>📊</span>
-          <span class="hidden sm:inline">Tržby & Historie</span>
+          <span>Tržby & Historie</span>
         </button>
 
         <button onclick="switchTab('admin')" data-tab="admin" 
-                class="nav-btn touch-btn px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
           <span>⚙️</span>
-          <span class="hidden sm:inline">Správa ceníku</span>
+          <span>Správa ceníku</span>
         </button>
       </nav>
 
-      <!-- Přihlášená obsluha -->
+      <!-- Přihlášená obsluha + tlačítko košíku pro mobil -->
       <div class="flex items-center gap-2">
+        
+        <!-- Rychlé tlačítko košíku v hlavičce na mobilním telefonu -->
+        <button id="header-cart-btn" onclick="toggleMobileCart()" 
+                class="md:hidden touch-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+          <span>🛒</span>
+          <span id="header-cart-total" class="font-mono font-bold">0 Kč</span>
+        </button>
+
+        <!-- Obsluha / Změna jména -->
         <button onclick="changeCashierName()" 
-                class="touch-btn px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs sm:text-sm font-medium flex items-center gap-2 transition"
+                class="touch-btn px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 transition"
                 title="Klikni pro změnu obsluhy">
           <span>👤</span>
-          <span id="cashier-name-display" class="font-bold text-indigo-300">Jakub (Obsluha)</span>
+          <span id="cashier-name-display" class="font-bold text-indigo-300 truncate max-w-[85px] sm:max-w-none">Obsluha</span>
           <span class="text-slate-400 text-xs">✏️</span>
         </button>
+
       </div>
 
     </div>
@@ -67,90 +83,135 @@
   <!-- ========================================== -->
   <!-- 2. HLAVNÍ OBSAH APLIKACE                    -->
   <!-- ========================================== -->
-  <main class="flex-1 overflow-hidden relative">
+  <main class="flex-1 overflow-hidden relative flex flex-col">
 
     <!-- ---------------------------------------- -->
     <!-- ZÁLOŽKA A: POKLADNA (POS)                -->
     <!-- ---------------------------------------- -->
-    <section id="tab-pos" class="tab-section h-full flex flex-col md:flex-row overflow-hidden">
+    <section id="tab-pos" class="tab-section h-full flex flex-col md:flex-row overflow-hidden relative">
       
       <!-- Levý panel: Produkty & Kategorie -->
-      <div class="flex-1 flex flex-col h-full overflow-hidden bg-slate-100 p-3 sm:p-4 border-r border-slate-200">
+      <div class="flex-1 flex flex-col h-full overflow-hidden bg-slate-100 p-2.5 sm:p-4 pb-24 md:pb-4 border-r border-slate-200">
         
         <!-- Hledání a filtrování kategorií -->
-        <div class="shrink-0 mb-3 space-y-2">
-          <!-- Vyhledávací pole -->
+        <div class="shrink-0 mb-2 sm:mb-3 space-y-2">
+          
+          <!-- Vyhledávací pole s tlačítkem pro vymazání jedním dotykem -->
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-base">🔍</span>
             <input type="text" id="product-search" placeholder="Hledat produkt (např. bageta, kofola)..." 
-                   class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm shadow-sm">
+                   class="w-full pl-10 pr-10 py-2 sm:py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm shadow-sm touch-btn">
+            <button id="search-clear-btn" onclick="clearSearch()" 
+                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 hidden text-base font-bold p-2"
+                    title="Vymazat hledání">
+              ✕
+            </button>
           </div>
 
-          <!-- Lišta kategorií -->
-          <div id="category-pills" class="flex gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
+          <!-- Lišta kategorií (plynulý touch scroll na mobilu a iPadu) -->
+          <div id="category-pills" class="flex gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar touch-scroll">
             <!-- Dynamicky generováno přes pos.js -->
           </div>
         </div>
 
         <!-- Mřížka produktů -->
-        <div class="flex-1 overflow-y-auto pr-1">
-          <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div class="flex-1 overflow-y-auto pr-0.5 sm:pr-1 touch-scroll pb-16 md:pb-2">
+          <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             <!-- Dynamicky generováno přes pos.js -->
           </div>
         </div>
 
       </div>
 
-      <!-- Pravý panel: Otevřený účet / Košík -->
-      <div class="w-full md:w-96 lg:w-[420px] bg-white h-auto md:h-full flex flex-col shrink-0 shadow-lg border-l border-slate-200">
+      <!-- Mobilní poloprůhledné pozadí při otevřeném vysouvacím účtu na telefonu -->
+      <div id="cart-backdrop" onclick="toggleMobileCart(false)" 
+           class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden md:hidden transition-opacity duration-200 opacity-0 pointer-events-none"></div>
+
+      <!-- Pravý panel: Otevřený účet / Košík (Na mobilu plynule výsuvný panel zespodu, na iPadu/PC stálý boční sloupec) -->
+      <div id="pos-cart-panel" 
+           class="fixed inset-x-0 bottom-0 z-50 md:static md:z-auto w-full md:w-80 lg:w-96 xl:w-[400px] bg-white h-[85vh] md:h-full flex flex-col shrink-0 shadow-2xl md:shadow-lg border-t md:border-t-0 md:border-l border-slate-200 rounded-t-3xl md:rounded-none transition-transform duration-300 ease-out transform translate-y-full md:translate-y-0">
         
+        <!-- Rukojeť pro potažení na mobilu -->
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 md:hidden"></div>
+
         <!-- Hlavička účtu -->
-        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="px-4 py-3 sm:p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div class="flex items-center gap-2">
             <span class="text-xl">🧾</span>
-            <h2 class="font-bold text-slate-800 text-base">Aktuální účet</h2>
+            <div>
+              <h2 class="font-bold text-slate-800 text-sm sm:text-base leading-tight">Aktuální účet</h2>
+              <span id="cart-items-count-label" class="text-xs text-slate-500 font-medium">0 položek</span>
+            </div>
           </div>
-          <button id="clear-cart-btn" onclick="clearCart()" 
-                  class="text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition disabled:opacity-40 disabled:pointer-events-none">
-            Vysypat účet
-          </button>
+          
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <button id="clear-cart-btn" onclick="clearCart()" 
+                    class="text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition disabled:opacity-40 disabled:pointer-events-none touch-btn min-h-0 h-8">
+              Vysypat
+            </button>
+            <!-- Tlačítko zavřít panel na mobilu -->
+            <button onclick="toggleMobileCart(false)" 
+                    class="md:hidden text-slate-400 hover:text-slate-700 text-lg font-bold p-1 w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 active:bg-slate-200"
+                    title="Zavřít účet a vrátit se k nabídce">
+              ✕
+            </button>
+          </div>
         </div>
 
         <!-- Seznam položek v účtu -->
-        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-2">
+        <div id="cart-items" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5 touch-scroll">
           <!-- Dynamicky generováno přes cart.js -->
         </div>
 
         <!-- Spodní souhrn a tlačítka rychlé platby -->
-        <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-3 shrink-0">
+        <div class="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 space-y-2.5 sm:space-y-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           
           <!-- Celková částka -->
           <div class="flex items-baseline justify-between">
-            <span class="text-slate-500 font-semibold text-sm">K úhradě celkem:</span>
-            <span id="cart-total" class="text-3xl font-black text-slate-900 font-mono">0 Kč</span>
+            <span class="text-slate-500 font-semibold text-xs sm:text-sm">K úhradě celkem:</span>
+            <span id="cart-total" class="text-2xl sm:text-3xl font-black text-slate-900 font-mono">0 Kč</span>
           </div>
 
           <!-- Velká dotyková tlačítka pro platbu (Storyous Styl: Zelená hotovost, Modrá karta) -->
-          <div class="grid grid-cols-2 gap-3 pt-1">
+          <div class="grid grid-cols-2 gap-2.5 sm:gap-3 pt-1">
             
             <!-- Platba Hotově -->
             <button id="pay-cash-btn" onclick="openCashModal()" disabled
-                    class="touch-btn h-14 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-2xl font-bold shadow-md shadow-emerald-600/20 flex flex-col items-center justify-center transition disabled:opacity-40 disabled:pointer-events-none">
-              <span class="text-lg leading-tight">💵 HOTOVĚ</span>
-              <span class="text-[11px] font-normal opacity-90">Kalkulačka vrácení</span>
+                    class="touch-btn h-13 sm:h-14 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-2xl font-bold shadow-md shadow-emerald-600/20 flex flex-col items-center justify-center transition disabled:opacity-40 disabled:pointer-events-none">
+              <span class="text-base sm:text-lg leading-tight">💵 HOTOVĚ</span>
+              <span class="text-[10px] sm:text-[11px] font-normal opacity-90">Kalkulačka vrácení</span>
             </button>
 
             <!-- Platba Kartou -->
             <button id="pay-card-btn" onclick="completeOrder('card')" disabled
-                    class="touch-btn h-14 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-2xl font-bold shadow-md shadow-indigo-600/20 flex flex-col items-center justify-center transition disabled:opacity-40 disabled:pointer-events-none">
-              <span class="text-lg leading-tight">💳 KARTOU</span>
-              <span class="text-[11px] font-normal opacity-90">Přiložte k terminálu</span>
+                    class="touch-btn h-13 sm:h-14 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-2xl font-bold shadow-md shadow-indigo-600/20 flex flex-col items-center justify-center transition disabled:opacity-40 disabled:pointer-events-none">
+              <span class="text-base sm:text-lg leading-tight">💳 KARTOU</span>
+              <span class="text-[10px] sm:text-[11px] font-normal opacity-90">Přiložte k terminálu</span>
             </button>
 
           </div>
 
         </div>
 
+      </div>
+
+      <!-- Plovoucí spodní proužek účtu pro mobil (vysune košík nahoru) -->
+      <div id="mobile-cart-bar" onclick="toggleMobileCart(true)" 
+           class="fixed bottom-20 left-3 right-3 z-30 md:hidden bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between transition-all duration-300 transform translate-y-28 opacity-0 pointer-events-none cursor-pointer active:scale-98">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">🧾</span>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span id="mobile-bar-count" class="bg-indigo-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">0 ks</span>
+              <span class="text-xs text-slate-300">K úhradě:</span>
+            </div>
+            <div id="mobile-bar-total" class="text-lg font-black text-emerald-400 font-mono leading-none mt-0.5">0 Kč</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 text-sm font-bold text-white bg-indigo-600 px-3.5 py-2 rounded-xl shadow-sm">
+          <span>Otevřít účet</span>
+          <span class="text-xs">▲</span>
+        </div>
       </div>
 
     </section>
@@ -159,32 +220,32 @@
     <!-- ---------------------------------------- -->
     <!-- ZÁLOŽKA B: TRŽBY & HISTORIE              -->
     <!-- ---------------------------------------- -->
-    <section id="tab-history" class="tab-section hidden h-full overflow-y-auto p-4 sm:p-6 bg-slate-100">
-      <div class="max-w-5xl mx-auto space-y-6">
+    <section id="tab-history" class="tab-section hidden h-full overflow-y-auto p-3 sm:p-6 bg-slate-100 touch-scroll pb-24 md:pb-6">
+      <div class="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         
         <!-- Nadpis a akce -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 class="text-2xl font-black text-slate-900">Přehled tržeb & Historie</h2>
-            <p class="text-sm text-slate-500">Statistiky a dokončené objednávky</p>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900">Přehled tržeb & Historie</h2>
+            <p class="text-xs sm:text-sm text-slate-500">Statistiky a dokončené objednávky z pokladny</p>
           </div>
           <button onclick="resetHistory()" 
-                  class="touch-btn px-4 py-2 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 text-sm font-bold shadow-sm transition">
+                  class="touch-btn px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs sm:text-sm font-bold shadow-sm transition">
             🔄 Začít novou směnu / Vynulovat
           </button>
         </div>
 
         <!-- Souhrnné statistiky -->
-        <div id="history-stats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div id="history-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           <!-- Dynamicky generováno přes orders.js -->
         </div>
 
         <!-- Seznam dokončených účtenek -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800">
+          <div class="p-3.5 sm:p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800 text-sm sm:text-base">
             Výpis dokončených účtenek
           </div>
-          <div id="orders-list" class="divide-y divide-slate-100 p-4 space-y-3">
+          <div id="orders-list" class="divide-y divide-slate-100 p-3 sm:p-4 space-y-3">
             <!-- Dynamicky generováno přes orders.js -->
           </div>
         </div>
@@ -196,23 +257,23 @@
     <!-- ---------------------------------------- -->
     <!-- ZÁLOŽKA C: SPRÁVA CENÍKU (ADMIN)         -->
     <!-- ---------------------------------------- -->
-    <section id="tab-admin" class="tab-section hidden h-full overflow-y-auto p-4 sm:p-6 bg-slate-100">
-      <div class="max-w-5xl mx-auto space-y-6">
+    <section id="tab-admin" class="tab-section hidden h-full overflow-y-auto p-3 sm:p-6 bg-slate-100 touch-scroll pb-24 md:pb-6">
+      <div class="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 class="text-2xl font-black text-slate-900">Správa Menu & Ceníku</h2>
-            <p class="text-sm text-slate-500">Přidávání nových produktů a úprava cen</p>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900">Správa Menu & Ceníku</h2>
+            <p class="text-xs sm:text-sm text-slate-500">Přidávání nových produktů a úprava cen</p>
           </div>
           <button onclick="handleResetDefaults()" 
-                  class="touch-btn px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-sm font-semibold text-slate-700 shadow-sm transition">
+                  class="touch-btn px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm transition">
             Obnovit výchozí produkty
           </button>
         </div>
 
         <!-- Formulář pro přidání produktu -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-slate-800 mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
             <span>➕</span> Přidat nový produkt do bufetu
           </h3>
           <form id="add-product-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -220,19 +281,19 @@
             <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-600 mb-1">Název položky</label>
               <input type="text" id="new-product-name" required placeholder="např. Párek v rohlíku" 
-                     class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                     class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
             </div>
 
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">Cena (Kč)</label>
               <input type="number" id="new-product-price" required min="0" step="1" placeholder="35" 
-                     class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                     class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
             </div>
 
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">Kategorie</label>
               <select id="new-product-category" 
-                      class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
                 <option value="pecivo">Pečivo</option>
                 <option value="napoje">Nápoje</option>
                 <option value="sladke">Sladkosti</option>
@@ -243,12 +304,12 @@
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">Ikona (Emoji)</label>
               <input type="text" id="new-product-icon" placeholder="🌭" value="🌭" 
-                     class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center">
+                     class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center">
             </div>
 
-            <div class="sm:col-span-2 lg:col-span-5 flex justify-end pt-2">
+            <div class="sm:col-span-2 lg:col-span-5 flex justify-end pt-1">
               <button type="submit" 
-                      class="touch-btn px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition">
+                      class="touch-btn w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition">
                 Přidat produkt do nabídky
               </button>
             </div>
@@ -258,18 +319,18 @@
 
         <!-- Seznam existujících produktů -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800">
+          <div class="p-3.5 sm:p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800 text-sm sm:text-base">
             Aktuální nabídka v pokladně
           </div>
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto touch-scroll">
             <table class="w-full text-left border-collapse text-sm">
               <thead>
                 <tr class="border-b border-slate-200 bg-slate-50/50 text-slate-500 text-xs uppercase font-semibold">
-                  <th class="py-3 px-4 w-14">Ikona</th>
-                  <th class="py-3 px-4">Název</th>
-                  <th class="py-3 px-4">Kategorie</th>
-                  <th class="py-3 px-4">Cena</th>
-                  <th class="py-3 px-4 text-right">Akce</th>
+                  <th class="py-3 px-3 sm:px-4 w-12 sm:w-14">Ikona</th>
+                  <th class="py-3 px-3 sm:px-4">Název</th>
+                  <th class="py-3 px-3 sm:px-4">Kategorie</th>
+                  <th class="py-3 px-3 sm:px-4">Cena</th>
+                  <th class="py-3 px-3 sm:px-4 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody id="admin-products-list">
@@ -286,56 +347,103 @@
 
 
   <!-- ========================================== -->
-  <!-- 3. MODÁLNÍ OKNO: PLATBA HOTOVĚ S KALKULAČKOU -->
+  <!-- 3. SPODNÍ NAVIGAČNÍ LIŠTA PRO MOBILNÍ TELEFONY -->
   <!-- ========================================== -->
-  <div id="cash-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 flex items-stretch h-16 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl">
+    <button onclick="switchTab('pos')" data-tab="pos" 
+            class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-white relative transition">
+      <span class="text-xl relative">
+        🛒
+        <span id="mobile-cart-badge" class="hidden absolute -top-1 -right-3 bg-red-500 text-white text-[10px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">0</span>
+      </span>
+      <span class="mt-0.5">Pokladna</span>
+    </button>
+
+    <button onclick="switchTab('history')" data-tab="history" 
+            class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-slate-400 hover:text-slate-200 transition">
+      <span class="text-xl">📊</span>
+      <span class="mt-0.5">Tržby</span>
+    </button>
+
+    <button onclick="switchTab('admin')" data-tab="admin" 
+            class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-slate-400 hover:text-slate-200 transition">
+      <span class="text-xl">⚙️</span>
+      <span class="mt-0.5">Ceník</span>
+    </button>
+  </nav>
+
+
+  <!-- ========================================== -->
+  <!-- 4. MODÁLNÍ OKNO: PLATBA HOTOVĚ S KALKULAČKOU (Dotykový Numpad pro mobil & iPad) -->
+  <!-- ========================================== -->
+  <div id="cash-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-3.5 sm:space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[95vh] overflow-y-auto touch-scroll">
       
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+      <!-- Hlavička modálu -->
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <h3 class="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
           <span>💵</span> Platba hotově
         </h3>
-        <button onclick="closeCashModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1">✕</button>
+        <button onclick="closeCashModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 active:bg-slate-200">✕</button>
       </div>
 
       <!-- Útrata -->
-      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex justify-between items-center">
-        <span class="text-slate-600 font-semibold">Částka k úhradě:</span>
-        <span id="cash-modal-total" class="text-3xl font-black text-slate-900 font-mono">0 Kč</span>
+      <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 flex justify-between items-center">
+        <span class="text-slate-600 font-semibold text-xs sm:text-sm">Částka k úhradě:</span>
+        <span id="cash-modal-total" class="text-2xl sm:text-3xl font-black text-slate-900 font-mono">0 Kč</span>
       </div>
 
-      <!-- Rychlá tlačítka bankovek -->
+      <!-- Rychlá tlačítka bankovek a přesné částky -->
       <div>
-        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Rychlá volba bankovky:</label>
-        <div class="grid grid-cols-4 gap-2">
-          <button onclick="quickCashValue(50)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-slate-800 border border-slate-200">50 Kč</button>
-          <button onclick="quickCashValue(100)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-slate-800 border border-slate-200">100 Kč</button>
-          <button onclick="quickCashValue(200)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-slate-800 border border-slate-200">200 Kč</button>
-          <button onclick="quickCashValue(500)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-slate-800 border border-slate-200">500 Kč</button>
+        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Rychlá volba bankovky:</label>
+        <div class="grid grid-cols-5 gap-1.5 sm:gap-2">
+          <button onclick="quickCashExact()" class="touch-btn py-2 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 text-indigo-700 rounded-xl font-bold text-xs border border-indigo-200">
+            Přesně
+          </button>
+          <button onclick="quickCashValue(50)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl font-bold font-mono text-xs sm:text-sm text-slate-800 border border-slate-200">50 Kč</button>
+          <button onclick="quickCashValue(100)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl font-bold font-mono text-xs sm:text-sm text-slate-800 border border-slate-200">100 Kč</button>
+          <button onclick="quickCashValue(200)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl font-bold font-mono text-xs sm:text-sm text-slate-800 border border-slate-200">200 Kč</button>
+          <button onclick="quickCashValue(500)" class="touch-btn py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl font-bold font-mono text-xs sm:text-sm text-slate-800 border border-slate-200">500 Kč</button>
         </div>
       </div>
 
       <!-- Zadáno od zákazníka -->
       <div>
-        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Zákazník dává (Kč):</label>
-        <input type="number" id="cash-given-input" step="1" 
-               class="w-full text-center text-3xl font-black font-mono py-3 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none">
+        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Zákazník dává (Kč):</label>
+        <input type="number" id="cash-given-input" step="1" inputmode="numeric"
+               class="w-full text-center text-2xl sm:text-3xl font-black font-mono py-2 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none bg-slate-50/50">
+      </div>
+
+      <!-- Dotyková numerická klávesnice (Numpad) pro bleskové zadávání na iPadu a mobilu bez softwarové klávesnice -->
+      <div class="grid grid-cols-3 gap-1.5 sm:gap-2 pt-0.5">
+        <button onclick="numpadInput('1')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">1</button>
+        <button onclick="numpadInput('2')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">2</button>
+        <button onclick="numpadInput('3')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">3</button>
+        <button onclick="numpadInput('4')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">4</button>
+        <button onclick="numpadInput('5')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">5</button>
+        <button onclick="numpadInput('6')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">6</button>
+        <button onclick="numpadInput('7')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">7</button>
+        <button onclick="numpadInput('8')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">8</button>
+        <button onclick="numpadInput('9')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">9</button>
+        <button onclick="numpadClear()" class="numpad-btn touch-btn py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold font-mono text-base border border-red-200">C</button>
+        <button onclick="numpadInput('0')" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold font-mono text-xl text-slate-800 border border-slate-200">0</button>
+        <button onclick="numpadBackspace()" class="numpad-btn touch-btn py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold font-mono text-lg border border-slate-200">⌫</button>
       </div>
 
       <!-- Výpočet k vrácení -->
-      <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 flex justify-between items-center">
-        <span class="text-emerald-800 font-bold">Vrátit zákazníkovi:</span>
-        <span id="cash-return-amount" class="text-3xl font-black text-emerald-600 font-mono">0 Kč</span>
+      <div id="cash-return-container" class="bg-emerald-50 p-3 sm:p-4 rounded-2xl border border-emerald-200 flex justify-between items-center transition-colors">
+        <span id="cash-return-label" class="text-emerald-800 font-bold text-xs sm:text-sm">Vrátit zákazníkovi:</span>
+        <span id="cash-return-amount" class="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">0 Kč</span>
       </div>
 
       <!-- Tlačítka potvrzení / storno -->
-      <div class="grid grid-cols-2 gap-3 pt-2">
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 pt-1">
         <button onclick="closeCashModal()" 
-                class="touch-btn py-3 rounded-2xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 transition">
+                class="touch-btn py-3 rounded-2xl border border-slate-300 font-bold text-sm sm:text-base text-slate-700 hover:bg-slate-100 transition">
           Zpět
         </button>
         <button onclick="confirmCashPayment()" 
-                class="touch-btn py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg shadow-lg shadow-emerald-600/30 transition">
+                class="touch-btn py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-base sm:text-lg shadow-lg shadow-emerald-600/30 transition">
           Zaplaceno ✓
         </button>
       </div>
@@ -345,7 +453,7 @@
 
 
   <!-- ========================================== -->
-  <!-- 4. PŘIPOJENÍ JAVASCRIPT MODULŮ             -->
+  <!-- 5. PŘIPOJENÍ JAVASCRIPT MODULŮ             -->
   <!-- ========================================== -->
   <script src="js/data.js"></script>
   <script src="js/cart.js"></script>
