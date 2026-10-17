@@ -29,7 +29,10 @@ Jednoduchý, přehledný a bleskurychlý pokladní systém navržený speciáln�
 ```text
 bufet POS/
 ├── index.html          # Responzivní HTML struktura aplikace (Tailwind CSS CDN)
-├── server.js           # Lokální server pro spuštění na počítači i tabletu v síti (bez instalace npm balíčků)
+├── server.js           # Lokální server pro sdílení účtenek v síti (bez externích npm knihoven)
+│
+├── data/
+│   └── orders.json     # Sdílená databáze účtenek na serveru
 │
 ├── css/
 │   └── style.css       # Touch styly, safe-areas, animace a velikost tlačítek pro dotykové obrazovky
@@ -38,7 +41,7 @@ bufet POS/
     ├── data.js         # Výchozí produkty bufetu, kategorie a ukládání do paměti (localStorage)
     ├── cart.js         # Logika otevřeného účtu (přidání, odebrání, změna ceny, mobilní lišta a indikátory)
     ├── pos.js          # Mřížka produktů, filtry kategorií a rychlé dotykové hledání
-    ├── orders.js       # Dokončení objednávky (hotově / kartou), historie účtenek a tržby
+    ├── orders.js       # Účtenky: sdílení se serverem v reálném čase (SSE), storno, úpravy a tržby
     ├── admin.js        # Správa ceníku (přidávání nových produktů a mazání)
     └── app.js          # Navigace (desktop i mobil), vysouvací panel a dotykový Numpad kalkulačky
 ```

@@ -60,6 +60,9 @@ function switchTab(tabName) {
 
   // Překreslíme data pro danou záložku
   if (tabName === 'history') {
+    if (typeof fetchOrdersFromServer === 'function') {
+      fetchOrdersFromServer();
+    }
     renderHistory();
   } else if (tabName === 'admin') {
     renderAdminProducts();
@@ -352,6 +355,16 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => {
     if (window.innerWidth >= 768 && isMobileCartOpen) {
       toggleMobileCart(false);
+    }
+  });
+
+  // Zavření modálních oken klávesou Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeCashModal();
+      if (typeof closeEditOrderModal === 'function') {
+        closeEditOrderModal();
+      }
     }
   });
 
