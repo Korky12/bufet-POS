@@ -1,6 +1,7 @@
 /**
  * admin.js
  * Jednoduchá správa menu a ceníku (přidávání, úprava cen a mazání produktů).
+ * Optimalizováno pro dotykové obrazovky s dostatečně velkými tlačítky.
  */
 
 /**
@@ -26,19 +27,23 @@ function renderAdminProducts() {
   container.innerHTML = products.map(p => {
     return `
       <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
-        <td class="py-3 px-4 text-2xl">${p.icon || '📦'}</td>
-        <td class="py-3 px-4 font-semibold text-slate-800">${p.name}</td>
-        <td class="py-3 px-4">
-          <span class="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md uppercase font-semibold">
+        <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-xl sm:text-2xl">${p.icon || '📦'}</td>
+        <td class="py-2.5 sm:py-3 px-3 sm:px-4 font-bold text-slate-800 text-xs sm:text-sm">${p.name}</td>
+        <td class="py-2.5 sm:py-3 px-3 sm:px-4">
+          <span class="bg-slate-100 text-slate-700 text-[10px] sm:text-xs px-2 py-0.5 rounded-md uppercase font-semibold">
             ${p.category}
           </span>
         </td>
-        <td class="py-3 px-4 font-mono font-bold text-indigo-600">${p.price} Kč</td>
-        <td class="py-3 px-4 text-right">
-          <button onclick="editProductPrompt(${p.id})" class="px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded mr-2 font-medium">
+        <td class="py-2.5 sm:py-3 px-3 sm:px-4 font-mono font-black text-indigo-600 text-xs sm:text-sm whitespace-nowrap">${p.price} Kč</td>
+        <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-right whitespace-nowrap">
+          <button onclick="editProductPrompt(${p.id})" 
+                  class="touch-btn px-2.5 sm:px-3 py-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 rounded-lg mr-1 font-bold min-h-0"
+                  title="Upravit název a cenu">
             Upravit ✏️
           </button>
-          <button onclick="deleteProduct(${p.id})" class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded font-medium">
+          <button onclick="deleteProduct(${p.id})" 
+                  class="touch-btn px-2.5 sm:px-3 py-1.5 text-xs text-red-600 bg-red-50 hover:bg-red-100 active:scale-95 rounded-lg font-bold min-h-0"
+                  title="Smazat produkt">
             Smazat 🗑️
           </button>
         </td>
@@ -87,7 +92,7 @@ function handleAddProduct(event) {
   // Překreslení
   renderAdminProducts();
   renderProductGrid();
-  showToast(`Produkt "${name}" byl úspěšně přidán.`);
+  showToast(`✅ Produkt "${name}" byl úspěšně přidán.`);
 }
 
 /**
@@ -106,7 +111,7 @@ function deleteProduct(productId) {
 
   renderAdminProducts();
   renderProductGrid();
-  showToast(`Produkt "${product.name}" byl smazán.`);
+  showToast(`🗑️ Produkt "${product.name}" byl smazán.`);
 }
 
 /**
@@ -135,7 +140,7 @@ function editProductPrompt(productId) {
   saveProducts(products);
   renderAdminProducts();
   renderProductGrid();
-  showToast('Produkt byl upraven.');
+  showToast(`✏️ Produkt "${product.name}" byl upraven.`);
 }
 
 /**
@@ -147,6 +152,6 @@ function handleResetDefaults() {
     resetDefaultProducts();
     renderAdminProducts();
     renderProductGrid();
-    showToast('Byla obnovena výchozí nabídka produktů.');
+    showToast('🔄 Byla obnovena výchozí nabídka produktů.');
   }
 }

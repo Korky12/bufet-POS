@@ -1,24 +1,56 @@
-/* Vlastní doplňkové styly pro Školní Bufet POS */
+/* Vlastní doplňkové styly pro Školní Bufet POS (Optimalizováno pro mobil, iPad i PC) */
 
-/* Všechna interaktivní tlačítka mají min-height 48px pro snadné dotykové ovládání na tabletu/mobilu */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Zákaz nežádoucího zoomování dvojklikem a zpoždění kliknutí na dotykových displejích */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  overscroll-behavior-y: none;
+}
+
+/* Všechna interaktivní tlačítka s minimální výškou pro pohodlné ovládání prsty na tabletu/mobilu */
 .touch-btn {
-  min-height: 48px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: all 0.15s ease-in-out;
+  transition: all 0.12s ease-in-out;
 }
 
 .touch-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
-/* Přizpůsobený scrollbar pro přehledný seznam produktů a účtu */
+/* Plynulé scrollování s setrvačností pro iOS Safari & Android */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Skrytí posuvníku při zachování scrollování (např. lišta kategorií) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Přizpůsobený scrollbar pro přehledný seznam produktů a účtu na desktopu */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -35,12 +67,38 @@
   background: #94a3b8;
 }
 
-/* Karta produktu - mírný stín a animace při kliknutí */
+/* Karta produktu - mírný stín, čisté rozvržení a hmatová animace při kliknutí */
 .product-card {
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  min-height: 110px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  min-height: 105px;
+  touch-action: manipulation;
 }
 
 .product-card:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
+  background-color: #f8fafc;
+}
+
+/* Hmatový stisk na tlačítkách kalkulačky (Numpad) */
+.numpad-btn {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.08s ease, background-color 0.08s ease;
+}
+
+.numpad-btn:active {
+  transform: scale(0.93);
+  background-color: #e2e8f0;
+}
+
+/* Jemná animace pulsu při přidání položky do košíku */
+@keyframes cartPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.cart-bump {
+  animation: cartPulse 0.25s ease-in-out;
 }
