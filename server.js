@@ -273,14 +273,14 @@ const server = http.createServer(async (req, res) => {
   }
 // zmena
 
-  // 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna)
+// 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna)
   if (pathname === '/api/orders' && req.method === 'DELETE') {
     try {
       await pool.query('DELETE FROM orders');
       broadcastOrders([]);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, count: 0 }));
+      res.end(JSON.stringify([])); // Vracíme prázdné pole, aby frontend hned pochopil, že je prázdno
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: err.message }));
