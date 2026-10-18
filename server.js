@@ -264,13 +264,14 @@ const server = http.createServer(async (req, res) => {
       broadcastOrders(orders);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, count: orders.length }));
+      res.end(JSON.stringify(orders)); // pošleme aktuální pole účtenek
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: err.message }));
     }
     return;
   }
+// zmena
 
   // 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna)
   if (pathname === '/api/orders' && req.method === 'DELETE') {
