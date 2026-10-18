@@ -13,10 +13,33 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+
+// Připojení k SQL databázi (Supabase) přes proměnnou DATABASE_URL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+// Inicializace databázové tabulky při startu
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('💾 SQL databázová tabulka "orders" je připravená.');
+  } catch (err) {
+    console.error('Chyba při inicializaci SQL databáze:', err.message);
+  }
+}
+
+initDatabase();
 
 // MIME typy pro správné načítání souborů v prohlížeči
 const MIME_TYPES = {
@@ -30,38 +53,14 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-// Inicializace úložiště pro účtenky
-function initStorage() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(ORDERS_FILE)) {
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify([], null, 2), 'utf-8');
-  }
-}
-
-// Načtení účtenek ze souboru
-function readOrdersFile() {
+// Načtení účtenek z databáze
+async function readOrdersFromDb() {
   try {
-    if (!fs.existsSync(ORDERS_FILE)) return [];
-    const content = fs.readFileSync(ORDERS_FILE, 'utf-8');
-    return JSON.parse(content);
+    const result = await pool.query('SELECT data FROM orders ORDER BY created_at DESC');
+    return result.rows.map(row => row.data);
   } catch (err) {
-    console.error('Chyba při čtení orders.json:', err.message);
+    console.error('Chyba při čtení z databáze:', err.message);
     return [];
-  }
-}
-
-// Zápis účtenek do souboru (atomický zápis přes dočasný soubor)
-function writeOrdersFile(orders) {
-  try {
-    const tempFile = ORDERS_FILE + '.tmp';
-    fs.writeFileSync(tempFile, JSON.stringify(orders, null, 2), 'utf-8');
-    fs.renameSync(tempFile, ORDERS_FILE);
-    return true;
-  } catch (err) {
-    console.error('Chyba při zápisu do orders.json:', err.message);
-    return false;
   }
 }
 
@@ -126,9 +125,6 @@ function readJsonBody(req) {
   });
 }
 
-// Inicializace souborů při startu
-initStorage();
-
 const server = http.createServer(async (req, res) => {
   // CORS hlavičky pro případ komunikace z jiných domén / portů
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -159,7 +155,7 @@ const server = http.createServer(async (req, res) => {
     res.write(': connected\n\n');
 
     // Okamžitě odešleme aktuální stav
-    const orders = readOrdersFile();
+    const orders = await readOrdersFromDb();
     res.write(`data: ${JSON.stringify(orders)}\n\n`);
 
     sseClients.add(res);
@@ -172,7 +168,7 @@ const server = http.createServer(async (req, res) => {
 
   // 2. GET /api/orders – Načtení všech účtenek ze serveru
   if (pathname === '/api/orders' && req.method === 'GET') {
-    const orders = readOrdersFile();
+    const orders = await readOrdersFromDb();
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-cache'
@@ -185,23 +181,36 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/orders' && req.method === 'POST') {
     try {
       const body = await readJsonBody(req);
-      let orders = readOrdersFile();
 
       if (Array.isArray(body)) {
-        orders = body;
-      } else if (Array.isArray(body.orders)) {
-        orders = body.orders;
-      } else if (body && body.id) {
-        // Jedna nová účtenka
-        const existsIdx = orders.findIndex(o => o.id === body.id);
-        if (existsIdx === -1) {
-          orders.unshift(body);
-        } else {
-          orders[existsIdx] = body;
+        for (const order of body) {
+          if (order && order.id) {
+            await pool.query(
+              `INSERT INTO orders (id, data) VALUES ($1, $2)
+               ON CONFLICT (id) DO UPDATE SET data = $2`,
+              [String(order.id), JSON.stringify(order)]
+            );
+          }
         }
+      } else if (Array.isArray(body.orders)) {
+        for (const order of body.orders) {
+          if (order && order.id) {
+            await pool.query(
+              `INSERT INTO orders (id, data) VALUES ($1, $2)
+               ON CONFLICT (id) DO UPDATE SET data = $2`,
+              [String(order.id), JSON.stringify(order)]
+            );
+          }
+        }
+      } else if (body && body.id) {
+        await pool.query(
+          `INSERT INTO orders (id, data) VALUES ($1, $2)
+           ON CONFLICT (id) DO UPDATE SET data = $2`,
+          [String(body.id), JSON.stringify(body)]
+        );
       }
 
-      writeOrdersFile(orders);
+      const orders = await readOrdersFromDb();
       broadcastOrders(orders);
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -216,19 +225,24 @@ const server = http.createServer(async (req, res) => {
   // 4. PUT /api/orders/:id – Úprava existující účtenky (např. storno nebo změna položek)
   if (pathname.startsWith('/api/orders/') && req.method === 'PUT') {
     const idStr = pathname.split('/api/orders/')[1];
-    const orderId = Number(idStr) || idStr;
+    const orderId = String(Number(idStr) || idStr);
     try {
       const updatedFields = await readJsonBody(req);
-      const orders = readOrdersFile();
-      const idx = orders.findIndex(o => String(o.id) === String(orderId));
+      const orders = await readOrdersFromDb();
+      const existingOrder = orders.find(o => String(o.id) === orderId);
 
-      if (idx !== -1) {
-        orders[idx] = { ...orders[idx], ...updatedFields };
-        writeOrdersFile(orders);
-        broadcastOrders(orders);
+      if (existingOrder) {
+        const mergedOrder = { ...existingOrder, ...updatedFields };
+        await pool.query(
+          `UPDATE orders SET data = $1 WHERE id = $2`,
+          [JSON.stringify(mergedOrder), orderId]
+        );
+
+        const updatedOrders = await readOrdersFromDb();
+        broadcastOrders(updatedOrders);
 
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: true, order: orders[idx] }));
+        res.end(JSON.stringify({ success: true, order: mergedOrder }));
       } else {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'Účtenka nenalezena' }));
@@ -243,25 +257,33 @@ const server = http.createServer(async (req, res) => {
   // 5. DELETE /api/orders/:id – Trvalé smazání konkrétní účtenky
   if (pathname.startsWith('/api/orders/') && req.method === 'DELETE') {
     const idStr = pathname.split('/api/orders/')[1];
-    const orderId = Number(idStr) || idStr;
-    const orders = readOrdersFile();
-    const filtered = orders.filter(o => String(o.id) !== String(orderId));
+    const orderId = String(Number(idStr) || idStr);
+    try {
+      await pool.query('DELETE FROM orders WHERE id = $1', [orderId]);
+      const orders = await readOrdersFromDb();
+      broadcastOrders(orders);
 
-    writeOrdersFile(filtered);
-    broadcastOrders(filtered);
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true, count: filtered.length }));
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, count: orders.length }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
     return;
   }
 
   // 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna)
   if (pathname === '/api/orders' && req.method === 'DELETE') {
-    writeOrdersFile([]);
-    broadcastOrders([]);
+    try {
+      await pool.query('DELETE FROM orders');
+      broadcastOrders([]);
 
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true, count: 0 }));
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, count: 0 }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
     return;
   }
 
@@ -314,7 +336,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(` 💻 Na tomto počítači:     http://localhost:${PORT}`);
   console.log(` 📱 Z tabletu nebo mobilu: http://${localIp}:${PORT}`);
   console.log(' 📡 Sdílení účtenek v síti: AKTIVNÍ (reálný čas SSE)');
-  console.log(` 💾 Soubor databáze:       ${ORDERS_FILE}`);
+  console.log(' 💾 Databáze:             Supabase (PostgreSQL)');
   console.log('========================================================');
   console.log(' Pro ukončení stiskni Ctrl + C\n');
 });
