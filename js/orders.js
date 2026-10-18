@@ -475,7 +475,7 @@ function renderHistory() {
       <div>
         <p class="text-[10px] sm:text-xs uppercase font-semibold text-emerald-600">Tržba Hotově</p>
         <p class="text-xl sm:text-2xl font-black text-emerald-600 font-mono mt-0.5">${stats.cashTotal} Kč</p>
-        <p class="text-[11px] text-emerald-600/70 mt-0.5">V pokladní zásuvce</p>
+        <p class="text-[11px] text-emerald-600/70 mt-0.5">V pokladně</p>
       </div>
       <span class="text-2xl sm:text-3xl bg-emerald-50 p-2 sm:p-2.5 rounded-xl">💵</span>
     </div>
