@@ -417,7 +417,7 @@ function restoreOrder(orderId) {
 /**
  * Trvale smaže účtenku z historie na všech zařízeních
  */
-function deleteOrderPermanently(orderId) {
+async function deleteOrderPermanently(orderId) {
   const orders = getOrders();
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
@@ -426,11 +426,26 @@ function deleteOrderPermanently(orderId) {
   const ok = confirm(`Trvale smazat účtenku #${orderNum} ze serveru i všech zařízení?\n\nTuto akci již nelze vzít zpět.`);
   if (!ok) return;
 
-  const filtered = orders.filter(o => o.id !== orderId);
-  saveOrders(filtered, true);
+  try {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/orders/${orderId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-  renderHistory();
-  showToast(`🗑️ Účtenka #${orderNum} byla trvale smazána`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Lokálně vymažeme okamžitě
+    const filtered = orders.filter(o => o.id !== orderId);
+    cachedOrders = filtered;
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
+
+    renderHistory();
+    showToast(`🗑️ Účtenka #${orderNum} byla trvale smazána`);
+  } catch (err) {
+    console.error('Chyba při mazání účtenky:', err);
+    showToast('❌ Nepodařilo se smazat účtenku na serveru');
+  }
 }
 
 /**
@@ -654,12 +669,31 @@ function renderHistory() {
 /**
  * Vynuluje celou historii tržeb (pro nový den/směnu) a vymaže ji ze serveru
  */
-function resetHistory() {
+async function resetHistory() {
   const ok = confirm('Opravdu chceš vymazat historii prodejů a začít novou směnu/den?\n\nHistorie bude vynulována na všech připojených zařízeních.');
-  if (ok) {
-    saveOrders([], true);
+  if (!ok) return;
+
+  try {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/orders`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Lokálně vyčistíme okamžitě pro rychlou odezvu
+    cachedOrders = [];
+    localStorage.setItem(STORAGE_KEYS.ORDERS, '[]');
+
     renderHistory();
     showToast('Historie tržeb byla vynulována na serveru i zařízeních.');
+  } catch (err) {
+    console.error('Chyba při vynulování historie:', err);
+    showToast('❌ Nepodařilo se vynulovat historii na serveru');
+    // Fallback: lokální vymazání
+    saveOrders([], false);
+    renderHistory();
   }
 }
 

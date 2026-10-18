@@ -43,7 +43,7 @@ Cílem systému je nahradit papírové bloky digitální pokladnou, zrychlit odb
 
 - **Frontend:** HTML5, Tailwind CSS (via CDN nebo PostCSS), Vanilla JavaScript / Alpine.js (rychlá a lehká reakce).
 - **Backend:** Node.js (Express.js) nebo Python (FastAPI/Flask) – *vyber dle preferencí*.
-- **Databáze:** SQLite (ukládání do jednoho souboru `bufet.db`, bez nutnosti instalovat složité DB servery).
+- **Databáze:** Vsechno se uklada na supabase. com.
 - **Architektura:** REST API pro komunikaci frontendu s backendem.
 
 ---
