@@ -1,21 +1,206 @@
 /**
  * server.js
  * Lokální server pro Školní Bufet POS bez nutnosti externích knihoven (zero-dependencies).
- * 
+ *
  * Zajišťuje:
  * 1. Sdílení a ukládání účtenek na serveru (soubor data/orders.json).
  * 2. Real-time synchronizaci mezi všemi zařízeními (mobily, tablety, PC) přes Server-Sent Events (SSE).
  * 3. REST API pro načítání, ukládání, úpravy, storno a mazání účtenek.
  * 4. Servírování statických souborů (HTML, CSS, JS, ikony).
+ * 5. Autentizace: shared employee/admin password + JWT token v localStorage.
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
+
+// Načtení .env souboru (bez externí knihovny)
+function loadEnv() {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.slice(0, eqIndex).trim();
+          const value = trimmed.slice(eqIndex + 1).trim();
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
+        }
+      }
+    });
+  }
+}
+loadEnv();
+
+// Generování/načtení JWT secret
+function getOrCreateJwtSecret() {
+  const envPath = path.join(__dirname, '.env');
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+
+  const secret = crypto.randomBytes(32).toString('base64');
+  const envLine = `\nJWT_SECRET=${secret}\n`;
+  fs.appendFileSync(envPath, envLine);
+  process.env.JWT_SECRET = secret;
+  console.log('🔐 Vygenerován nový JWT_SECRET do .env');
+  return secret;
+}
+const JWT_SECRET = getOrCreateJwtSecret();
+
+// Hashování hesel (PBKDF2 - bez externích závislostí)
+const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_KEYLEN = 64;
+const PBKDF2_DIGEST = 'sha512';
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  return `${salt.toString('hex')}:${hash.toString('hex')}`;
+}
+
+function verifyPassword(password, storedHash) {
+  const [saltHex, hashHex] = storedHash.split(':');
+  if (!saltHex || !hashHex) return false;
+  const salt = Buffer.from(saltHex, 'hex');
+  const hash = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  return crypto.timingSafeEqual(Buffer.from(hashHex, 'hex'), hash);
+}
+
+// Inicializace/načtení hesel z .env
+function initPasswords() {
+  const envPath = path.join(__dirname, '.env');
+  let envContent = '';
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf-8');
+  }
+
+  // Employee password
+  let employeeHash = null;
+  const empMatch = envContent.match(/^EMPLOYEE_PASSWORD_HASH=(.+)$/m);
+  if (empMatch) {
+    employeeHash = empMatch[1].trim();
+  } else if (process.env.EMPLOYEE_PASSWORD) {
+    employeeHash = hashPassword(process.env.EMPLOYEE_PASSWORD);
+    fs.appendFileSync(envPath, `\nEMPLOYEE_PASSWORD_HASH=${employeeHash}\n`);
+    console.log('🔐 Uložen hash zaměstnaneckého hesla do .env');
+  }
+
+  // Admin password
+  let adminHash = null;
+  const adminMatch = envContent.match(/^ADMIN_PASSWORD_HASH=(.+)$/m);
+  if (adminMatch) {
+    adminHash = adminMatch[1].trim();
+  } else if (process.env.ADMIN_PASSWORD) {
+    adminHash = hashPassword(process.env.ADMIN_PASSWORD);
+    fs.appendFileSync(envPath, `\nADMIN_PASSWORD_HASH=${adminHash}\n`);
+    console.log('🔐 Uložen hash admin hesla do .env');
+  }
+
+  // Výchozí hesla pokud nejsou nastavené
+  if (!employeeHash) {
+    const defaultEmp = 'bufet2024';
+    employeeHash = hashPassword(defaultEmp);
+    fs.appendFileSync(envPath, `\nEMPLOYEE_PASSWORD_HASH=${employeeHash}\n`);
+    console.log(`⚠️  Výchozí heslo zaměstnance: ${defaultEmp} (změň v .env)`);
+  }
+  if (!adminHash) {
+    const defaultAdmin = 'admin2024';
+    adminHash = hashPassword(defaultAdmin);
+    fs.appendFileSync(envPath, `\nADMIN_PASSWORD_HASH=${adminHash}\n`);
+    console.log(`⚠️  Výchozí heslo admina: ${defaultAdmin} (změň v .env)`);
+  }
+
+  return { employeeHash, adminHash };
+}
+
+const { employeeHash: EMPLOYEE_PASSWORD_HASH, adminHash: ADMIN_PASSWORD_HASH } = initPasswords();
+
+// ==========================================
+// JWT FUNKCE (bez externích závislostí)
+// ==========================================
+
+function base64URLEncode(buffer) {
+  return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function base64URLDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = str.length % 4;
+  if (pad) str += '='.repeat(4 - pad);
+  return Buffer.from(str, 'base64');
+}
+
+function createJWT(payload) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const encodedHeader = base64URLEncode(Buffer.from(JSON.stringify(header)));
+  const encodedPayload = base64URLEncode(Buffer.from(JSON.stringify(payload)));
+
+  const signature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest();
+
+  const encodedSignature = base64URLEncode(signature);
+  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+}
+
+function verifyJWT(token) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Neplatný formát tokenu');
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+
+  // Ověření podpisu
+  const expectedSignature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest();
+
+  const providedSignature = base64URLDecode(encodedSignature);
+  if (!crypto.timingSafeEqual(expectedSignature, providedSignature)) {
+    throw new Error('Neplatný podpis tokenu');
+  }
+
+  const payload = JSON.parse(base64URLDecode(encodedPayload).toString('utf-8'));
+
+  // Kontrola expirace
+  if (payload.exp && Date.now() >= payload.exp * 1000) {
+    throw new Error('Token vypršel');
+  }
+
+  return payload;
+}
+
+// Extrakce tokenu z Authorization header
+function getTokenFromReq(req) {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith('Bearer ')) return auth.slice(7);
+  return null;
+}
+
+// Middleware: ověření JWT
+function authenticate(req) {
+  const token = getTokenFromReq(req);
+  if (!token) return null;
+  try {
+    return verifyJWT(token);
+  } catch {
+    return null;
+  }
+}
+
+// Middleware: vyžaduje admin roli
+function requireAdmin(user) {
+  return user && user.role === 'admin';
+}
 
 // Připojení k SQL databázi (Supabase) přes proměnnou DATABASE_URL
 const pool = new Pool({
@@ -141,11 +326,83 @@ const server = http.createServer(async (req, res) => {
   const pathname = parsedUrl.pathname;
 
   // ==========================================
+  // AUTH ENDPOINTY
+  // ==========================================
+
+  // POST /api/auth/login – Přihlášení s heslem
+  if (pathname === '/api/auth/login' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req);
+      const password = body.password?.trim();
+
+      if (!password) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Heslo je povinné' }));
+        return;
+      }
+
+      let role = null;
+      if (verifyPassword(password, EMPLOYEE_PASSWORD_HASH)) {
+        role = 'employee';
+      } else if (verifyPassword(password, ADMIN_PASSWORD_HASH)) {
+        role = 'admin';
+      } else {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Neplatné heslo' }));
+        return;
+      }
+
+      // Vytvoření JWT tokenu (expirace 30 dní)
+      const payload = {
+        role,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+      };
+      const token = createJWT(payload);
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ token, role }));
+      return;
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: err.message }));
+      return;
+    }
+  }
+
+  // GET /api/auth/me – Ověření tokenu a vrácení role
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const user = authenticate(req);
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Neplatný nebo chybějící token' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ role: user.role }));
+    return;
+  }
+
+  // ==========================================
   // API ENDPOINTY PRO SDÍLENÍ ÚČTENEK
   // ==========================================
 
-  // 1. Real-time stream změn účtenek přes Server-Sent Events (SSE)
+  // 1. Real-time stream změn účtenek přes Server-Sent Events (SSE) - vyžaduje přihlášení
   if (pathname === '/api/orders/events' && req.method === 'GET') {
+    // Pro SSE token je v query parametru (EventSource nepodporuje headers)
+    const token = parsedUrl.searchParams.get('token');
+    let user = null;
+    if (token) {
+      try {
+        user = verifyJWT(token);
+      } catch {}
+    }
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+      res.end('data: {"error":"Neautorizováno"}\n\n');
+      return;
+    }
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -166,8 +423,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 2. GET /api/orders – Načtení všech účtenek ze serveru
+  // 2. GET /api/orders – Načtení všech účtenek ze serveru (vyžaduje přihlášení)
   if (pathname === '/api/orders' && req.method === 'GET') {
+    const user = authenticate(req);
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Neautorizováno' }));
+      return;
+    }
     const orders = await readOrdersFromDb();
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -177,8 +440,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. POST /api/orders – Uložení účtenek (celé pole nebo přidání nové účtenky)
+  // 3. POST /api/orders – Uložení účtenek (celé pole nebo přidání nové účtenky) - vyžaduje přihlášení
   if (pathname === '/api/orders' && req.method === 'POST') {
+    const user = authenticate(req);
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Neautorizováno' }));
+      return;
+    }
     try {
       const body = await readJsonBody(req);
 
@@ -222,8 +491,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. PUT /api/orders/:id – Úprava existující účtenky (např. storno nebo změna položek)
+  // 4. PUT /api/orders/:id – Úprava existující účtenky (např. storno nebo změna položek) - vyžaduje přihlášení
   if (pathname.startsWith('/api/orders/') && req.method === 'PUT') {
+    const user = authenticate(req);
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Neautorizováno' }));
+      return;
+    }
     const idStr = pathname.split('/api/orders/')[1];
     const orderId = String(Number(idStr) || idStr);
     try {
@@ -254,8 +529,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 5. DELETE /api/orders/:id – Trvalé smazání konkrétní účtenky
+  // 5. DELETE /api/orders/:id – Trvalé smazání konkrétní účtenky (vyžaduje admin)
   if (pathname.startsWith('/api/orders/') && req.method === 'DELETE') {
+    const user = authenticate(req);
+    if (!user || !requireAdmin(user)) {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Pouze pro administrátory' }));
+      return;
+    }
     const idStr = pathname.split('/api/orders/')[1];
     const orderId = String(Number(idStr) || idStr);
     try {
@@ -273,8 +554,14 @@ const server = http.createServer(async (req, res) => {
   }
 // zmena
 
-// 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna)
+// 6. DELETE /api/orders – Vynulování celé historie účtenek (nová směna) - vyžaduje admin
   if (pathname === '/api/orders' && req.method === 'DELETE') {
+    const user = authenticate(req);
+    if (!user || !requireAdmin(user)) {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Pouze pro administrátory' }));
+      return;
+    }
     try {
       await pool.query('DELETE FROM orders');
       broadcastOrders([]);

@@ -13,6 +13,31 @@ let isMobileCartOpen = false;
 // Příznak pro přepsání výchozí částky v kalkulačce při prvním stisku numerické klávesnice
 let isNumpadFresh = true;
 
+// Role přihlášeného uživatele (nastavuje se v index.html auth guard)
+window.currentUserRole = window.currentUserRole || 'employee';
+
+/**
+ * Odhlášení - smaže token a přesměruje na login
+ */
+function logout() {
+  localStorage.removeItem('bufet_pos_token');
+  window.location.href = 'login.html';
+}
+
+/**
+ * Zobrazí/skryje prvky podle role uživatele
+ */
+function applyRoleUI() {
+  const isAdmin = window.currentUserRole === 'admin';
+
+  // History tab - tlačítko "Vynulovat historie" - JEN ADMIN
+  const resetBtn = document.querySelector('button[onclick="resetHistory()"]');
+  if (resetBtn) {
+    if (isAdmin) resetBtn.classList.remove('hidden');
+    else resetBtn.classList.add('hidden');
+  }
+}
+
 /**
  * Přepínání mezi záložkami (Pokladna, Historie, Správa)
  * Podporuje jak desktop/tablet hlavičku, tak spodní mobilní lištu.
@@ -320,6 +345,9 @@ function confirmCashPayment() {
  * Spuštění aplikace po načtení DOMu
  */
 document.addEventListener('DOMContentLoaded', () => {
+  // Aplikace role-based UI
+  applyRoleUI();
+
   // Inicializace zobrazení obsluhy
   updateCashierDisplay();
 

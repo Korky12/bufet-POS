@@ -75,6 +75,17 @@ function getApiBaseUrl() {
 }
 
 /**
+ * Vrátí auth header s JWT tokenem z localStorage
+ */
+function getAuthHeaders() {
+  const token = localStorage.getItem('bufet_pos_token');
+  if (token) {
+    return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  }
+  return { 'Content-Type': 'application/json' };
+}
+
+/**
  * Načte aktuální seznam účtenek ze serveru přes REST API
  */
 async function fetchOrdersFromServer() {
@@ -83,7 +94,7 @@ async function fetchOrdersFromServer() {
   const baseUrl = getApiBaseUrl();
   try {
     const res = await fetch(`${baseUrl}/api/orders`, {
-      headers: { 'Cache-Control': 'no-cache' }
+      headers: { ...getAuthHeaders(), 'Cache-Control': 'no-cache' }
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -145,9 +156,7 @@ async function pushOrdersToServer(orders) {
     isSyncingToServer = true;
     const res = await fetch(`${baseUrl}/api/orders`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(orders)
     });
 
@@ -173,13 +182,15 @@ function initOrdersServerSync() {
 
   const baseUrl = getApiBaseUrl();
 
-  // 1. Reálný čas přes Server-Sent Events (SSE)
+  // 1. Reálný čas přes Server-Sent Events (SSE) - token v query parametru
   if (window.EventSource) {
     try {
       if (sseClient) {
         sseClient.close();
       }
-      sseClient = new EventSource(`${baseUrl}/api/orders/events`);
+      const token = localStorage.getItem('bufet_pos_token');
+      const sseUrl = token ? `${baseUrl}/api/orders/events?token=${encodeURIComponent(token)}` : `${baseUrl}/api/orders/events`;
+      sseClient = new EventSource(sseUrl);
 
       sseClient.onopen = () => {
         updateServerStatus(true);
@@ -416,8 +427,14 @@ function restoreOrder(orderId) {
 
 /**
  * Trvale smaže účtenku z historie na všech zařízeních
+ * POUZE PRO ADMINA
  */
 async function deleteOrderPermanently(orderId) {
+  if (window.currentUserRole !== 'admin') {
+    showToast('❌ Tato akce je dostupná pouze administrátorům');
+    return;
+  }
+
   const orders = getOrders();
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
@@ -430,7 +447,7 @@ async function deleteOrderPermanently(orderId) {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/orders/${orderId}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+      headers: getAuthHeaders()
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -604,23 +621,25 @@ function renderHistory() {
             </div>
             
             <div class="flex items-center gap-1.5">
-              <button onclick="restoreOrder(${order.id})" 
+              <button onclick="restoreOrder(${order.id})"
                       class="touch-btn px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1"
                       title="Obnovit stornovanou účtenku do platných">
                 <span>↩️</span>
                 <span>Obnovit</span>
               </button>
-              <button onclick="openEditOrderModal(${order.id})" 
+              <button onclick="openEditOrderModal(${order.id})"
                       class="touch-btn px-2.5 py-1.5 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1"
                       title="Upravit položky, platbu nebo obsluhu">
                 <span>✏️</span>
                 <span>Upravit</span>
               </button>
-              <button onclick="deleteOrderPermanently(${order.id})" 
+              ${window.currentUserRole === 'admin' ? `
+              <button onclick="deleteOrderPermanently(${order.id})"
                       class="touch-btn px-2.5 py-1.5 bg-white hover:bg-red-50 active:bg-red-100 text-slate-400 hover:text-red-600 border border-slate-200 rounded-xl text-xs font-bold transition"
                       title="Trvale odstranit z databáze">
                 <span>🗑️</span>
               </button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -647,18 +666,25 @@ function renderHistory() {
           <div class="text-lg sm:text-xl font-black text-slate-900 font-mono">${order.totalPrice} Kč</div>
           
           <div class="flex items-center gap-1.5">
-            <button onclick="openEditOrderModal(${order.id})" 
+            <button onclick="openEditOrderModal(${order.id})"
                     class="touch-btn px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
                     title="Upravit položky, cenu, platbu nebo obsluhu">
               <span>✏️</span>
               <span>Upravit</span>
             </button>
-            <button onclick="cancelOrder(${order.id})" 
+            <button onclick="cancelOrder(${order.id})"
                     class="touch-btn px-2.5 py-1.5 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
                     title="Stornovat tuto účtenku">
               <span>🚫</span>
               <span>Stornovat</span>
             </button>
+            ${window.currentUserRole === 'admin' ? `
+            <button onclick="deleteOrderPermanently(${order.id})"
+                    class="touch-btn px-2.5 py-1.5 bg-white hover:bg-red-50 active:bg-red-100 text-slate-400 hover:text-red-600 border border-slate-200 rounded-xl text-xs font-bold transition"
+                    title="Trvale odstranit z databáze">
+              <span>🗑️</span>
+            </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -668,8 +694,14 @@ function renderHistory() {
 
 /**
  * Vynuluje celou historii tržeb (pro nový den/směnu) a vymaže ji ze serveru
+ * POUZE PRO ADMINA
  */
 async function resetHistory() {
+  if (window.currentUserRole !== 'admin') {
+    showToast('❌ Tato akce je dostupná pouze administrátorům');
+    return;
+  }
+
   const ok = confirm('Opravdu chceš vymazat historii prodejů a začít novou směnu/den?\n\nHistorie bude vynulována na všech připojených zařízeních.');
   if (!ok) return;
 
@@ -677,7 +709,7 @@ async function resetHistory() {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/orders`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+      headers: getAuthHeaders()
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
