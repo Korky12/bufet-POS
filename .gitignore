@@ -1,6 +1,9 @@
-antigravity.md
-<<<<<<< HEAD
-orders.json
-=======
-orders.json
->>>>>>> 9ef5faaae334a057006df762bfb81f4a4c950cb3
+# Citlivá konfigurace
+.env
+.env.example
+
+# Databázová data
+data/orders.json
+
+# Node modules
+node_modules/

@@ -32,7 +32,8 @@ const DEFAULT_PRODUCTS = [
 const STORAGE_KEYS = {
   PRODUCTS: 'bufet_pos_products',
   ORDERS: 'bufet_pos_orders',
-  CASHIER: 'bufet_pos_cashier'
+  CASHIER: 'bufet_pos_cashier',
+  TOKEN: 'bufet_pos_token'
 };
 
 /**

@@ -10,14 +10,33 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
   <title>Školní Bufet POS</title>
-  
+
   <!-- Tailwind CSS CDN pro moderní Storyous styl -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+
   <!-- Vlastní doplňkové styly -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="h-full flex flex-col font-sans text-slate-800 antialiased select-none bg-slate-100">
+
+  <!-- Auth Guard - kontrola tokenu před renderem -->
+  <script>
+    (function() {
+      const token = localStorage.getItem('bufet_pos_token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      // Dekódovat payload (bez verify) pro zjištění role pro UI
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        window.currentUserRole = payload.role; // 'employee' | 'admin'
+      } catch (e) {
+        localStorage.removeItem('bufet_pos_token');
+        window.location.href = 'login.html';
+      }
+    })();
+  </script>
 
   <!-- ========================================== -->
   <!-- 1. HORNÍ NAVIGAČNÍ LIŠTA (Storyous Slate-900) -->
@@ -34,30 +53,30 @@
         </div>
       </div>
 
-      <!-- Přepínače záložek pro Tablet (iPad) a Desktop (na mobilu přesunuté do spodní lišty) -->
-      <nav class="hidden md:flex items-center gap-1.5 lg:gap-2">
-        <button onclick="switchTab('pos')" data-tab="pos" 
+      <!-- Přepínače záložek pro Tablet (iPad) a Desktop -->
+      <nav id="desktop-nav" class="hidden md:flex items-center gap-1.5 lg:gap-2">
+        <button onclick="switchTab('pos')" data-tab="pos"
                 class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition bg-slate-700 text-white flex items-center gap-2">
           <span>🛒</span>
           <span>Pokladna</span>
         </button>
 
-        <button onclick="switchTab('history')" data-tab="history" 
+        <button onclick="switchTab('history')" data-tab="history"
                 class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
           <span>📊</span>
           <span>Tržby & Historie</span>
         </button>
 
-        <button onclick="switchTab('admin')" data-tab="admin" 
+        <button onclick="switchTab('admin')" data-tab="admin"
                 class="nav-btn touch-btn px-3.5 sm:px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
           <span>⚙️</span>
           <span>Správa ceníku</span>
         </button>
       </nav>
 
-      <!-- Přihlášená obsluha + indikátor serveru + tlačítko košíku pro mobil -->
+      <!-- Přihlášená obsluha + indikátor serveru + tlačítko košíku pro mobil + logout -->
       <div class="flex items-center gap-2">
-        
+
         <!-- Indikátor synchronizace se serverem (sdílení mezi zařízeními) -->
         <div id="server-status-pill" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 transition shadow-xs" title="Připojování k serveru...">
           <span class="w-2 h-2 rounded-full bg-slate-500"></span>
@@ -65,19 +84,27 @@
         </div>
 
         <!-- Rychlé tlačítko košíku v hlavičce na mobilním telefonu -->
-        <button id="header-cart-btn" onclick="toggleMobileCart()" 
+        <button id="header-cart-btn" onclick="toggleMobileCart()"
                 class="md:hidden touch-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
           <span>🛒</span>
           <span id="header-cart-total" class="font-mono font-bold">0 Kč</span>
         </button>
 
         <!-- Obsluha / Změna jména -->
-        <button onclick="changeCashierName()" 
+        <button onclick="changeCashierName()"
                 class="touch-btn px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 transition"
                 title="Klikni pro změnu obsluhy">
           <span>👤</span>
           <span id="cashier-name-display" class="font-bold text-indigo-300 truncate max-w-[85px] sm:max-w-none">Obsluha</span>
           <span class="text-slate-400 text-xs">✏️</span>
+        </button>
+
+        <!-- Logout tlačítko -->
+        <button onclick="logout()"
+                class="touch-btn px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 transition"
+                title="Odhlásit se">
+          <span>🚪</span>
+          <span class="hidden xs:inline">Odhlásit</span>
         </button>
 
       </div>
@@ -378,7 +405,7 @@
   <!-- 3. SPODNÍ NAVIGAČNÍ LIŠTA PRO MOBILNÍ TELEFONY -->
   <!-- ========================================== -->
   <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 flex items-stretch h-16 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl">
-    <button onclick="switchTab('pos')" data-tab="pos" 
+    <button onclick="switchTab('pos')" data-tab="pos"
             class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-white relative transition">
       <span class="text-xl relative">
         🛒
@@ -387,13 +414,13 @@
       <span class="mt-0.5">Pokladna</span>
     </button>
 
-    <button onclick="switchTab('history')" data-tab="history" 
+    <button onclick="switchTab('history')" data-tab="history"
             class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-slate-400 hover:text-slate-200 transition">
       <span class="text-xl">📊</span>
       <span class="mt-0.5">Tržby</span>
     </button>
 
-    <button onclick="switchTab('admin')" data-tab="admin" 
+    <button onclick="switchTab('admin')" data-tab="admin"
             class="mobile-nav-btn flex-1 flex flex-col items-center justify-center text-xs font-semibold text-slate-400 hover:text-slate-200 transition">
       <span class="text-xl">⚙️</span>
       <span class="mt-0.5">Ceník</span>
