@@ -15,18 +15,30 @@ const DEFAULT_CATEGORIES = [
 
 // Výchozí nabídka bufetu
 const DEFAULT_PRODUCTS = [
-  { id: 1, name: 'Kuřecí bageta', price: 55, category: 'pecivo', icon: '🥖' },
-  { id: 2, name: 'Čerstvý croissant', price: 25, category: 'pecivo', icon: '🥐' },
-  { id: 3, name: 'Kobliha s marmeládou', price: 20, category: 'pecivo', icon: '🍩' },
-  { id: 4, name: 'Minerálka neperlivá 0.5l', price: 18, category: 'napoje', icon: '💧' },
-  { id: 5, name: 'Kofola 0.5l', price: 30, category: 'napoje', icon: '🥤' },
-  { id: 6, name: 'Ovocný čaj', price: 15, category: 'napoje', icon: '🧃' },
-  { id: 7, name: 'Toast šunka & sýr', price: 42, category: 'slane', icon: '🥪' },
-  { id: 8, name: 'Brambůrky solené', price: 28, category: 'slane', icon: '🥔' },
-  { id: 9, name: 'Horalka', price: 16, category: 'sladke', icon: '🍫' },
-  { id: 10, name: 'Ovocná tyčinka', price: 22, category: 'sladke', icon: '🍎' },
-  { id: 11, name: 'Čokoláda mléčná', price: 25, category: 'sladke', icon: '🍫' },
-  { id: 12, name: 'Žvýkačky Orbit', price: 18, category: 'sladke', icon: '🍬' }
+  { id: 1, name: 'Perlivá voda', price: 15, category: 'napoje', icon: '🥖' },
+  { id: 2, name: 'Neperlivá voda', price: 15, category: 'napoje', icon: '🥐' },
+  { id: 3, name: 'Coca-cola', price: 35, category: 'napoje', icon: '🍩' },
+  { id: 4, name: 'Coca-cola zero', price: 35, category: 'napoje', icon: '💧' },
+  { id: 5, name: 'Kofola', price: 35, category: 'napoje', icon: '🥤' },
+  { id: 6, name: 'Capri-sun', price: 18, category: 'napoje', icon: '🧃' },
+  { id: 7, name: 'Sprite', price: 35, category: 'napoje', icon: '�' },
+  { id: 8, name: 'Horalka', price: 15, category: 'sladké', icon: '🥔' },
+  { id: 9, name: 'Kinder Bueno', price: 25, category: 'sladké', icon: '🍫' },
+  { id: 10, name: 'Kit Kat', price: 20, category: 'sladké', icon: '🍎' },
+  { id: 11, name: 'Corny tyčinky', price: 18, category: 'sladké', icon: '🍫' },
+  { id: 12, name: 'Žvýkačky Orbit', price: 20, category: 'sladké', icon: '🍬' },
+  { id: 13, name: 'Emco sušenky', price: 25, category: 'sladké', icon: '🥨' },
+  { id: 14, name: 'Delisa kokos', price: 15, category: 'sladké', icon: '🥔' },
+  { id: 15, name: 'Brambůrky', price: 20, category: 'slané', icon: '🍫' },
+  { id: 16, name: 'Ondrášovka', price: 20, category: 'napoje', icon: '🥨' },
+  { id: 17, name: 'domácí limonády', price: 55, category: 'napoje', icon: '🥖' },
+  { id: 18, name: 'Ledový čaj', price: 30, category: 'napoje', icon: '🥐' },
+  { id: 19, name: 'Kapesníky', price: 5, category: 'ostatni', icon: '🍩' },
+  { id: 20, name: 'Fidorky', price: 18, category: 'sladke', icon: '💧' },
+  { id: 21, name: 'brambůrky', price: 20, category: 'slané', icon: '🥤' },
+  { id: 22, name: 'preclíky', price: 20, category: 'slané', icon: '🧃' },
+  { id: 23, name: 'TUC Sušenky', price: 20, category: 'slané', icon: '' },
+  { id: 24, name: 'Tyčinky', price: 25, category: 'slané', icon: '🥤' },
 ];
 
 const STORAGE_KEYS = {
