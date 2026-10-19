@@ -13,6 +13,10 @@ const DEFAULT_CATEGORIES = [
   { id: 'slane', name: 'Slané', icon: '🥪' }
 ];
 
+// Verze výchozích produktů – zvyš při změně struktury nebo obsahu DEFAULT_PRODUCTS,
+// aby se uživatelům automaticky načetla nová verze místo staré z localStorage
+const DEFAULT_PRODUCTS_VERSION = 2;
+
 // Výchozí nabídka bufetu
 const DEFAULT_PRODUCTS = [
   { id: 1, name: 'Perlivá voda', price: 15, category: 'napoje', icon: '🥖' },
@@ -43,33 +47,43 @@ const DEFAULT_PRODUCTS = [
 
 const STORAGE_KEYS = {
   PRODUCTS: 'bufet_pos_products',
+  PRODUCTS_VERSION: 'bufet_pos_products_version',
   ORDERS: 'bufet_pos_orders',
   CASHIER: 'bufet_pos_cashier',
   TOKEN: 'bufet_pos_token'
 };
 
 /**
- * Načte produkty z localStorage. Pokud ještě neexistují, použije výchozí.
+ * Načte produkty z localStorage. Pokud ještě neexistují nebo je stará verze,
+ * použije výchozí a uloží novou verzi.
  */
 function getProducts() {
+  const savedVersion = localStorage.getItem(STORAGE_KEYS.PRODUCTS_VERSION);
   const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-  if (!saved) {
+
+  // Pokud verze neodpovídá nebo data chybí, použij výchozí
+  if (!saved || !savedVersion || parseInt(savedVersion, 10) !== DEFAULT_PRODUCTS_VERSION) {
     saveProducts(DEFAULT_PRODUCTS);
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS_VERSION, String(DEFAULT_PRODUCTS_VERSION));
     return DEFAULT_PRODUCTS;
   }
+
   try {
     return JSON.parse(saved);
   } catch (e) {
     console.error('Chyba při čtení produktů:', e);
+    saveProducts(DEFAULT_PRODUCTS);
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS_VERSION, String(DEFAULT_PRODUCTS_VERSION));
     return DEFAULT_PRODUCTS;
   }
 }
 
 /**
- * Uloží pole produktů do localStorage.
+ * Uloží pole produktů do localStorage spolu s aktuální verzí.
  */
 function saveProducts(products) {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS_VERSION, String(DEFAULT_PRODUCTS_VERSION));
 }
 
 /**
@@ -77,6 +91,7 @@ function saveProducts(products) {
  */
 function resetDefaultProducts() {
   saveProducts(DEFAULT_PRODUCTS);
+  // Verze se nastaví uvnitř saveProducts
   return DEFAULT_PRODUCTS;
 }
 
