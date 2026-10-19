@@ -25,6 +25,31 @@ let sseClient = null;
 let isSyncingToServer = false;
 
 /**
+ * Zentrální handler pro 401/403 chyby autentizace.
+ * Smaže token a přesměruje na přihlášení.
+ */
+function handleAuthError() {
+  localStorage.removeItem('bufet_pos_token');
+  showToast('🔒 Relace vypršela, přihlašte se prosím znovu');
+  setTimeout(() => {
+    window.location.href = 'login.html';
+  }, 1500);
+}
+
+/**
+ * Wrapper pro fetch s automatickým odchycením 401/403.
+ * Vrátí response nebo null pokud došlo k auth chybě (pak už je redirect probíhající).
+ */
+async function authFetch(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: getAuthHeaders() });
+  if (res.status === 401 || res.status === 403) {
+    handleAuthError();
+    return null;
+  }
+  return res;
+}
+
+/**
  * Načte historii objednávek (z paměti / localStorage)
  */
 function getOrders() {
@@ -93,9 +118,10 @@ async function fetchOrdersFromServer() {
 
   const baseUrl = getApiBaseUrl();
   try {
-    const res = await fetch(`${baseUrl}/api/orders`, {
-      headers: { ...getAuthHeaders(), 'Cache-Control': 'no-cache' }
+    const res = await authFetch(`${baseUrl}/api/orders`, {
+      headers: { 'Cache-Control': 'no-cache' }
     });
+    if (!res) return; // auth error handled
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const serverOrders = await res.json();
@@ -154,11 +180,11 @@ async function pushOrdersToServer(orders) {
 
   try {
     isSyncingToServer = true;
-    const res = await fetch(`${baseUrl}/api/orders`, {
+    const res = await authFetch(`${baseUrl}/api/orders`, {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: JSON.stringify(orders)
     });
+    if (!res) return; // auth error handled
 
     if (res.ok) {
       updateServerStatus(true);
@@ -174,12 +200,9 @@ async function pushOrdersToServer(orders) {
 }
 
 /**
- * Inicializuje obousměrnou synchronizaci se serverem v reálném čase (SSE + polling fallback)
+ * Nastaví SSE připojení pro real-time synchronizaci
  */
-function initOrdersServerSync() {
-  // Prvotní stažení dat ze serveru
-  fetchOrdersFromServer();
-
+function setupSSE() {
   const baseUrl = getApiBaseUrl();
 
   // 1. Reálný čas přes Server-Sent Events (SSE) - token v query parametru
@@ -199,10 +222,15 @@ function initOrdersServerSync() {
       sseClient.onmessage = (event) => {
         if (!event.data) return;
         try {
-          const serverOrders = JSON.parse(event.data);
-          if (Array.isArray(serverOrders)) {
+          // Check for auth error in SSE stream
+          const data = JSON.parse(event.data);
+          if (data && data.error === 'Neautorizováno') {
+            handleAuthError();
+            return;
+          }
+          if (Array.isArray(data)) {
             updateServerStatus(true);
-            applyServerOrders(serverOrders);
+            applyServerOrders(data);
           }
         } catch (e) {
           console.error('Chyba při čtení SSE zprávy:', e);
@@ -217,13 +245,29 @@ function initOrdersServerSync() {
       console.warn('Inicializace SSE selhala, poběží záložní polling:', err);
     }
   }
+}
+
+/**
+ * Inicializuje obousměrnou synchronizaci se serverem v reálném čase (SSE + polling fallback)
+ */
+function initOrdersServerSync() {
+  // Prvotní stažení dat ze serveru
+  fetchOrdersFromServer();
+  // Nastavení SSE
+  setupSSE();
 
   // 2. Záložní periodická kontrola každých 4 vteřiny
   setInterval(fetchOrdersFromServer, 4000);
 
   // 3. Okamžitá kontrola při návratu do okna (probuzení telefonu / iPadu ze spánku)
-  window.addEventListener('focus', fetchOrdersFromServer);
-  window.addEventListener('online', fetchOrdersFromServer);
+  window.addEventListener('focus', () => {
+    fetchOrdersFromServer();
+    setupSSE(); // Re-establish SSE on focus
+  });
+  window.addEventListener('online', () => {
+    fetchOrdersFromServer();
+    setupSSE(); // Re-establish SSE when coming online
+  });
 }
 
 /**
@@ -445,10 +489,10 @@ async function deleteOrderPermanently(orderId) {
 
   try {
     const baseUrl = getApiBaseUrl();
-    const res = await fetch(`${baseUrl}/api/orders/${orderId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
+    const res = await authFetch(`${baseUrl}/api/orders/${orderId}`, {
+      method: 'DELETE'
     });
+    if (!res) return; // auth error handled
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -707,10 +751,10 @@ async function resetHistory() {
 
   try {
     const baseUrl = getApiBaseUrl();
-    const res = await fetch(`${baseUrl}/api/orders`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
+    const res = await authFetch(`${baseUrl}/api/orders`, {
+      method: 'DELETE'
     });
+    if (!res) return; // auth error handled
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
