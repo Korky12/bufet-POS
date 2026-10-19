@@ -27,9 +27,13 @@
         window.location.href = 'login.html';
         return;
       }
-      // Dekódovat payload (bez verify) pro zjištění role pro UI
+      // Dekódovat payload (bez verify) pro zjištění role pro UI + kontrola expirace
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
+        // Kontrola expirace tokenu (exp je v sekundách od epochy)
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          throw new Error('Token vypršel');
+        }
         window.currentUserRole = payload.role; // 'employee' | 'admin'
       } catch (e) {
         localStorage.removeItem('bufet_pos_token');
