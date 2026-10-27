@@ -29,7 +29,7 @@ const DEFAULT_PRODUCTS = [
   { id: 8, name: 'Horalka', price: 15, category: 'sladke', icon: '🍫' },
   { id: 9, name: 'Kinder Bueno', price: 25, category: 'sladke', icon: '🍫' },
   { id: 10, name: 'Kit Kat', price: 20, category: 'sladke', icon: '🍫' },
-  { id: 11, name: 'Corny tyčinky', price: 18, category: 'sladke', icon: '🍫' },
+  { id: 11, name: 'Corny tyčinky', price: 20, category: 'sladke', icon: '🍫' },
   { id: 12, name: 'Žvýkačky Orbit', price: 20, category: 'sladke', icon: '🍬' },
   { id: 13, name: 'Emco sušenky', price: 25, category: 'sladke', icon: '🍪' },
   { id: 14, name: 'Delisa kokos', price: 15, category: 'sladke', icon: '🥥' },
@@ -43,6 +43,7 @@ const DEFAULT_PRODUCTS = [
   { id: 22, name: 'preclíky', price: 20, category: 'slane', icon: '🥨' },
   { id: 23, name: 'TUC Sušenky', price: 20, category: 'slane', icon: '🥨' },
   { id: 24, name: 'Tyčinky', price: 25, category: 'slane', icon: '🥨' },
+  { id: 25, name: 'JoJo Bonbóny', price: 20, category: 'sladke', icon: '🍬' },
 ];
 
 const STORAGE_KEYS = {
